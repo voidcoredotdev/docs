@@ -1,0 +1,116 @@
+---
+title: "Configure IP Addresses and Network Interfaces on Linux"
+sidebarTitle: "IP Addressing"
+description: "Configure static and dynamic IP addresses on Linux using ip, ifconfig, Netplan, and NetworkManager. View routes, interfaces, and network statistics."
+---
+
+Every Linux system that communicates over a network needs at least one network interface configured with an IP address, a subnet mask, and a default gateway. Linux gives you several layers of tooling to manage this: the modern `ip` command for live inspection and temporary changes, Netplan for persistent declarative configuration on Ubuntu, and NetworkManager for desktop or cloud environments. Understanding how these tools fit together helps you diagnose connectivity issues and apply changes that survive a reboot.
+
+## Viewing Network Interfaces
+
+Before making any changes, inspect your current interface state to understand what the system already has configured.
+
+```bash
+ip addr show                       # list all interfaces
+ip addr show eth0                  # specific interface
+ip link show                       # link layer info
+ifconfig                           # (legacy, may need net-tools)
+```
+
+<Note>
+  Interface names vary by system. Older systems use `eth0`, while modern Linux kernels use predictable names such as `ens3`, `enp3s0`, or `eno1`. The name depends on your hardware slot, firmware, and udev rules. Run `ip link show` to see the exact names on your machine before referencing them in any configuration file.
+</Note>
+
+## Viewing Routes
+
+Use the following commands to inspect the routing table and understand how traffic leaves your system.
+
+```bash
+ip route show
+ip route get 8.8.8.8               # route for specific host
+ip route show table all            # show all routing tables
+```
+
+## Temporary IP Changes
+
+The `ip` command applies changes immediately but they do not persist across reboots. Use these commands for testing or quick fixes.
+
+```bash
+sudo ip addr add 192.168.1.10/24 dev eth0
+sudo ip addr del 192.168.1.10/24 dev eth0
+sudo ip link set eth0 up
+sudo ip link set eth0 down
+sudo ip route add default via 192.168.1.1
+```
+
+<Warning>
+  Temporary changes made with `ip` are lost when the system reboots or the network service restarts. Always follow up with a persistent configuration (Netplan or NetworkManager) if you need the settings to survive.
+</Warning>
+
+## Persistent Configuration with Netplan
+
+Ubuntu 17.10 and later use Netplan for persistent network configuration. Edit or create a file under `/etc/netplan/` to define your desired state.
+
+<CodeGroup>
+```yaml /etc/netplan/01-netcfg.yaml
+network:
+  version: 2
+  renderer: networkd
+  ethernets:
+    eth0:
+      dhcp4: false
+      addresses:
+        - 192.168.1.100/24
+      routes:
+        - to: default
+          via: 192.168.1.1
+      nameservers:
+        addresses:
+          - 8.8.8.8
+          - 8.8.4.4
+```
+</CodeGroup>
+
+After saving the file, apply the configuration:
+
+```bash
+sudo netplan apply
+```
+
+<Tip>
+  Run `sudo netplan try` before `sudo netplan apply` to test the configuration with an automatic rollback after 120 seconds. This prevents you from locking yourself out of a remote machine if the new settings are incorrect.
+</Tip>
+
+## Managing Connections with NetworkManager
+
+Desktop systems and many cloud images use NetworkManager. The `nmcli` command-line tool lets you inspect and modify connections without a GUI.
+
+```bash
+nmcli device status
+nmcli connection show
+nmcli connection up "My Connection"
+nmcli con mod "My Connection" ipv4.addresses 192.168.1.100/24
+nmcli con mod "My Connection" ipv4.gateway 192.168.1.1
+nmcli con mod "My Connection" ipv4.method manual
+```
+
+After modifying a connection, bring it back up to apply the changes:
+
+```bash
+nmcli connection up "My Connection"
+```
+
+## Useful Diagnostics
+
+Use these commands to verify connectivity, trace the path to a destination, and inspect open sockets.
+
+```bash
+ping -c 4 8.8.8.8
+traceroute 8.8.8.8
+ss -tuln                           # listening sockets
+netstat -tuln                      # (legacy)
+```
+
+<Tip>
+  Prefer `ss` over `netstat` on modern systems — it is faster, reads directly from kernel socket structures, and is actively maintained. `netstat` requires the `net-tools` package and is considered legacy.
+</Tip>

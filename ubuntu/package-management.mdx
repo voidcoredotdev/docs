@@ -1,0 +1,127 @@
+---
+title: "Managing Ubuntu Packages with apt, apt-get, and dpkg"
+sidebarTitle: "Packages"
+description: "Manage software on Ubuntu using apt and apt-get: install, remove, update, and search for packages. Includes PPAs, dpkg, and snap package commands."
+---
+
+Ubuntu handles software installation and updates through **APT** (Advanced Package Tool), a package management system that resolves dependencies automatically and fetches packages from a network of official mirrors. Under the hood, APT works with `.deb` packages — the Debian packaging format — and maintains a local index of all available software that you synchronize against remote repositories. Whether you're installing a single utility or orchestrating a full system upgrade, the `apt` command is your primary tool. For lower-level operations like installing local `.deb` files or listing package state, you'll reach for `dpkg` directly.
+
+## Updating Package Lists and Upgrading
+
+Before installing or upgrading anything, refresh your local package index against the configured repositories. This ensures APT knows about the latest available versions.
+
+```bash
+sudo apt update                          # refresh package index from all configured sources
+sudo apt upgrade                         # upgrade all installed packages to their latest version
+sudo apt full-upgrade                    # upgrade with automatic dependency resolution (may add/remove packages)
+sudo apt dist-upgrade                    # distribution upgrade, handles complex dependency changes
+```
+
+<Note>
+  `apt update` does **not** install or upgrade anything — it only refreshes the index. You must follow it with `apt upgrade` (or `apt install`) to apply any changes.
+</Note>
+
+## Installing and Removing Packages
+
+Install one or more packages by name. APT resolves and installs all required dependencies automatically.
+
+```bash
+sudo apt install nginx                   # install a single package
+sudo apt install nginx curl git          # install multiple packages at once
+sudo apt remove nginx                    # remove a package but keep its configuration files
+sudo apt purge nginx                     # remove a package and delete its configuration files
+sudo apt autoremove                      # remove packages that were installed as dependencies and are no longer needed
+```
+
+<Tip>
+  Use `apt purge` instead of `apt remove` when you want a completely clean uninstall — for example, before reinstalling a service with a fresh configuration.
+</Tip>
+
+## Searching for Packages
+
+You can search the package index, view detailed metadata about a specific package, and inspect the state of installed packages — all without installing anything.
+
+```bash
+apt search nginx                         # search package names and descriptions for "nginx"
+apt show nginx                           # display detailed metadata: version, dependencies, description
+apt list --installed                     # list all currently installed packages
+apt list --upgradable                    # list packages with available upgrades
+```
+
+## Using dpkg Directly
+
+`dpkg` is the low-level tool that APT builds on. You use it directly when you have a `.deb` file to install locally, or when you need granular information about installed packages.
+
+```bash
+sudo dpkg -i package.deb                 # install a local .deb file
+dpkg -l                                  # list all installed packages with status
+dpkg -l | grep nginx                     # filter the installed list for a specific package
+dpkg --get-selections                    # list all package selections (installed, deinstall, purge)
+```
+
+<Note>
+  After running `sudo dpkg -i package.deb`, if APT reports missing dependencies, run `sudo apt install -f` to automatically resolve and install them.
+</Note>
+
+## Using apt-get (The Scriptable Interface)
+
+`apt-get` is the older, lower-level counterpart to `apt`. It produces machine-parseable output with no progress bars or color — making it the preferred choice for shell scripts, Dockerfiles, and CI pipelines where predictable, unformatted output matters. The commands mirror `apt` closely.
+
+```bash
+sudo apt-get update                      # refresh the package index
+sudo apt-get upgrade                     # upgrade all installed packages
+sudo apt-get dist-upgrade                # upgrade with automatic dependency resolution
+sudo apt-get install nginx               # install a package
+sudo apt-get install -y nginx curl git   # install multiple packages, auto-confirm prompts
+sudo apt-get remove nginx                # remove a package, keep configuration files
+sudo apt-get purge nginx                 # remove a package and delete configuration files
+sudo apt-get autoremove                  # remove unused dependency packages
+sudo apt-get install -f                  # fix broken dependencies
+```
+
+<Note>
+  In interactive terminals, prefer `apt` for its cleaner output and progress indicators. Use `apt-get` in scripts and automation where stable, parseable output is required — its output format is guaranteed not to change between Ubuntu releases.
+</Note>
+
+## Adding PPAs (Personal Package Archives)
+
+PPAs let you install software maintained by community contributors that isn't available in the official Ubuntu repositories. Add a PPA, update the index, then install as normal.
+
+```bash
+sudo add-apt-repository ppa:user/ppa-name   # add the PPA and import its signing key
+sudo apt update                              # refresh the index to include the new PPA
+sudo apt install package-from-ppa           # install the package from the PPA
+```
+
+<Warning>
+  PPAs are third-party sources and are **not vetted by Canonical**. Only add PPAs from publishers you trust, and prefer official repositories or snaps where they exist.
+</Warning>
+
+## Snap Packages
+
+Snaps are containerized software packages maintained by Canonical and app publishers. They bundle their own dependencies, update automatically, and work across Ubuntu versions.
+
+```bash
+snap find vlc                            # search the Snap Store for vlc
+sudo snap install vlc                    # install a snap package
+sudo snap remove vlc                     # remove an installed snap
+snap list                                # list all installed snaps and their versions
+```
+
+<CodeGroup>
+  ```bash apt (recommended)
+  sudo apt update
+  sudo apt install vlc
+  sudo apt remove vlc
+  ```
+
+  ```bash snap
+  sudo snap install vlc
+  sudo snap remove vlc
+  snap list
+  ```
+</CodeGroup>
+
+<Tip>
+  `apt-cache` works offline and doesn't require a recent `apt update` to query locally cached package data. Use `apt-cache search nginx` or `apt-cache show nginx` when you don't have internet access but still need to inspect available packages.
+</Tip>

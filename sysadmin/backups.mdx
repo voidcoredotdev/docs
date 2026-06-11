@@ -1,0 +1,145 @@
+---
+title: "Backup Strategies for Linux: rsync, tar, and Scheduling"
+sidebarTitle: "Backups"
+description: "Implement Linux backups with rsync for incremental sync, tar for archives, and cron for scheduling. Covers local, remote, and offsite backup strategies."
+---
+
+A backup you have never tested is not a backup — it is wishful thinking. Data loss happens through hardware failure, accidental deletion, ransomware, and misconfigured commands, and it is rarely predictable. The most widely recommended backup strategy is the **3-2-1 rule**: keep at least **3 copies** of your data, on **2 different types of media**, with **1 copy stored offsite** (or in a separate cloud region). Linux provides powerful command-line tools to implement this strategy without expensive proprietary software.
+
+## rsync: Incremental File Sync
+
+`rsync` is the workhorse of Linux backups. It transfers only the files that have changed since the last run, making it extremely efficient for large directory trees.
+
+<Tabs>
+  <Tab title="Local backups">
+    ```bash
+    # Basic sync
+    rsync -avz /source/ /backup/
+
+    # Delete files not in source (mirror)
+    rsync -avz --delete /source/ /backup/
+
+    # Exclude patterns
+    rsync -avz --exclude='*.log' --exclude='tmp/' /source/ /backup/
+
+    # Dry run (test without changes)
+    rsync -avzn /source/ /backup/
+
+    # With progress
+    rsync -avz --progress /source/ /backup/
+    ```
+  </Tab>
+  <Tab title="Remote backups">
+    ```bash
+    # Remote backup over SSH
+    rsync -avz /source/ user@backup-server:/backup/
+    ```
+
+    rsync uses SSH for remote transfers by default. Make sure you have SSH key authentication configured so automated cron jobs can run without a password prompt.
+  </Tab>
+</Tabs>
+
+<Warning>
+  The trailing slash on the source path matters. `rsync -av /source/ /backup/` copies the *contents* of `/source` into `/backup`. Without the trailing slash, `rsync -av /source /backup/` creates a `/backup/source/` subdirectory. Always double-check your paths, especially when using `--delete`.
+</Warning>
+
+## Creating Archives with tar
+
+`tar` bundles files into a single compressed archive, which is ideal for point-in-time snapshots, transferring data, or long-term storage.
+
+```bash
+# Create compressed archive
+tar -czf backup-$(date +%Y%m%d).tar.gz /path/to/backup
+
+# Create with bzip2
+tar -cjf backup.tar.bz2 /path/to/backup
+
+# List archive contents
+tar -tzf backup.tar.gz
+
+# Extract archive
+tar -xzf backup.tar.gz
+tar -xzf backup.tar.gz -C /restore/path
+```
+
+The `$(date +%Y%m%d)` substitution automatically names the archive with today's date (e.g., `backup-20240315.tar.gz`), making it simple to manage multiple dated backups in the same directory.
+
+## Scheduling Backups with cron
+
+Automate your backup jobs by adding entries to your crontab. The format is `minute hour day month weekday command`.
+
+```bash
+crontab -e                           # edit user crontab
+```
+
+Add entries like these to your crontab:
+
+```
+# Daily backup at 2am
+0 2 * * * rsync -az /home/ /backup/home/
+
+# Weekly full backup on Sunday at 3am
+0 3 * * 0 tar -czf /backup/weekly-$(date +\%Y\%m\%d).tar.gz /home
+
+# Monthly cleanup - remove backups older than 30 days
+0 4 1 * * find /backup/ -name "*.tar.gz" -mtime +30 -delete
+```
+
+<Note>
+  Percent signs (`%`) have special meaning in crontab and must be escaped as `\%`. Redirect output to a log file to capture errors: append `>> /var/log/backup.log 2>&1` to each entry.
+</Note>
+
+## Database Backups
+
+File-level backups cannot safely capture a live database. Use the database's own dump tools instead.
+
+<CodeGroup>
+  ```bash MySQL
+  # Single database
+  mysqldump -u root -p mydb > mydb-$(date +%Y%m%d).sql
+
+  # All databases
+  mysqldump -u root -p --all-databases > all-dbs.sql
+  ```
+
+  ```bash PostgreSQL
+  # Single database
+  pg_dump mydb > mydb-$(date +%Y%m%d).sql
+
+  # All databases
+  pg_dumpall > all-dbs.sql
+  ```
+</CodeGroup>
+
+Store the resulting `.sql` files somewhere your regular file backup will pick them up, so they get included in your rsync or tar jobs.
+
+## Dedicated Backup Tools
+
+For more advanced requirements — encryption, deduplication, cloud storage targets, and retention policies — consider a purpose-built backup tool.
+
+<CardGroup cols={3}>
+  <Card title="Restic" icon="shield" href="sysadmin/backups">
+    Fast, encrypted, deduplicated backups to local, SFTP, S3, and many other backends. Excellent CLI and cross-platform support.
+  </Card>
+  <Card title="Duplicati" icon="cloud" href="sysadmin/backups">
+    GUI-based tool with built-in encryption, scheduling, and support for cloud storage providers including S3, Backblaze, and Google Drive.
+  </Card>
+  <Card title="Bacula" icon="server" href="sysadmin/backups">
+    Enterprise-grade backup framework for managing backups across many machines in a network. More complex to set up but highly scalable.
+  </Card>
+</CardGroup>
+
+### Restic Quick Start
+
+```bash
+restic -r /backup/repo init
+restic -r /backup/repo backup /home
+restic -r /backup/repo snapshots
+restic -r /backup/repo restore latest --target /restore/path
+```
+
+Restic encrypts all data at rest and uses content-addressed deduplication, meaning it never stores the same block of data twice even across different snapshots.
+
+<Tip>
+  Test your restores regularly — on a schedule, not just when disaster strikes. Restore a random file from last week's backup, verify the database dump loads cleanly into a test instance, or do a full restore to a spare machine once a quarter. A backup you have never successfully restored from is unreliable by definition.
+</Tip>

@@ -1,0 +1,143 @@
+---
+title: "Managing System Services with systemd and systemctl"
+sidebarTitle: "Services"
+description: "Control Linux system services with systemctl: start, stop, enable, disable, and inspect services. Includes writing custom systemd unit files for your apps."
+---
+
+systemd is the init system used by most modern Linux distributions, including Ubuntu, Debian, Fedora, and Arch. It manages the full lifecycle of system services — starting them at boot, restarting them on failure, and providing a unified logging interface through the journal. The `systemctl` command is your primary tool for interacting with systemd, letting you start, stop, enable, disable, and inspect any service on your system.
+
+## Basic Service Operations
+
+Use these commands to control whether a service is running at any given moment. Changes made with `start`, `stop`, and `restart` are immediate but not persistent across reboots.
+
+```bash
+sudo systemctl start nginx
+sudo systemctl stop nginx
+sudo systemctl restart nginx
+sudo systemctl reload nginx          # reload config without restart
+sudo systemctl status nginx
+```
+
+The `reload` command sends a signal to the service to re-read its configuration file without fully restarting the process. Not all services support reload — check the service's documentation if you're unsure.
+
+## Enable and Disable at Boot
+
+Enabling a service tells systemd to start it automatically on boot. This is separate from starting it right now.
+
+```bash
+sudo systemctl enable nginx          # start on boot
+sudo systemctl disable nginx         # don't start on boot
+sudo systemctl enable --now nginx    # enable and start immediately
+sudo systemctl is-enabled nginx      # check if enabled
+sudo systemctl is-active nginx       # check if running
+```
+
+The `--now` flag combines enabling and starting in a single command, which is the most convenient way to bring a new service online and ensure it survives a reboot.
+
+## Listing Services
+
+Inspect what services are present on your system and which ones are currently active.
+
+```bash
+systemctl list-units --type=service
+systemctl list-units --type=service --state=running
+systemctl list-unit-files --type=service
+```
+
+`list-units` shows loaded units and their current state. `list-unit-files` shows all installed unit files regardless of whether they are currently loaded, which is useful for seeing disabled services.
+
+## Viewing Service Logs
+
+systemd routes all service output to the journal, which you query with `journalctl`.
+
+```bash
+journalctl -u nginx                  # all logs for service
+journalctl -u nginx -f               # follow (tail) logs
+journalctl -u nginx --since "1 hour ago"
+journalctl -u nginx -n 50            # last 50 lines
+```
+
+<Note>
+  Combine flags for more precise queries. For example, `journalctl -u nginx -p err --since "today"` shows only error-level messages from nginx since midnight.
+</Note>
+
+## Creating a Custom Service Unit File
+
+When you deploy an application that doesn't come with a systemd unit file, you can write one yourself. Unit files live in `/etc/systemd/system/` for system-level services.
+
+<Steps>
+  <Step title="Write the unit file">
+    Create `/etc/systemd/system/myapp.service` with the following content:
+
+    ```ini
+    [Unit]
+    Description=My Application
+    After=network.target
+
+    [Service]
+    Type=simple
+    User=myapp
+    WorkingDirectory=/opt/myapp
+    ExecStart=/opt/myapp/bin/myapp --config /etc/myapp/config.yaml
+    Restart=on-failure
+    RestartSec=5s
+    StandardOutput=journal
+    StandardError=journal
+
+    [Install]
+    WantedBy=multi-user.target
+    ```
+
+    - `After=network.target` ensures the network is up before your app starts.
+    - `Restart=on-failure` tells systemd to restart the process if it exits with a non-zero code.
+    - `StandardOutput=journal` sends all stdout/stderr output to the systemd journal.
+  </Step>
+  <Step title="Reload and enable the service">
+    After writing the file, tell systemd to pick up the new unit and then enable and start it:
+
+    ```bash
+    sudo systemctl daemon-reload
+    sudo systemctl enable --now myapp
+    ```
+
+    Run `daemon-reload` any time you create or modify a unit file — systemd does not detect changes automatically.
+  </Step>
+  <Step title="Verify it is running">
+    Confirm the service started successfully and check its initial log output:
+
+    ```bash
+    sudo systemctl status myapp
+    journalctl -u myapp -n 30
+    ```
+  </Step>
+</Steps>
+
+## System Targets (Runlevels)
+
+systemd uses *targets* as the modern equivalent of SysV runlevels. The default target determines which services start at boot.
+
+```bash
+systemctl get-default
+sudo systemctl set-default multi-user.target
+sudo systemctl isolate rescue.target
+```
+
+Common targets:
+
+| Target | Equivalent Runlevel | Description |
+|---|---|---|
+| `poweroff.target` | 0 | Shut down the system |
+| `rescue.target` | 1 | Single-user rescue mode |
+| `multi-user.target` | 3 | Multi-user, no GUI |
+| `graphical.target` | 5 | Multi-user with GUI |
+| `reboot.target` | 6 | Reboot |
+
+<Warning>
+  Using `systemctl isolate` immediately switches to the target, stopping all services not required by it. Never run `isolate rescue.target` on a production server without understanding which services will be killed.
+</Warning>
+
+## Analyzing Boot Performance
+
+<Tip>
+  Run `systemd-analyze blame` to see how long each service took to start during boot. Use `systemd-analyze critical-chain` to identify the bottleneck in your boot sequence. These tools are invaluable for diagnosing slow boot times on servers and workstations alike.
+</Tip>

@@ -1,0 +1,108 @@
+---
+title: "Linux File Permissions: chmod, chown, and chgrp Guide"
+sidebarTitle: "Permissions"
+description: "Learn how Linux file permissions work, how to read permission strings, and how to change file ownership and access with chmod, chown, and chgrp."
+---
+
+Every file and directory on a Linux system has an associated owner, a group, and a set of access permissions that control who can read, write, or execute it. This model, inherited from Unix, provides a straightforward but powerful security boundary between users and system resources. Understanding how to read permission strings and how to manipulate them with `chmod`, `chown`, and `chgrp` is one of the most important skills for anyone working on a Linux system.
+
+## Reading Permission Strings
+
+When you run `ls -la`, you see a permission string at the start of each line — for example, `-rwxr-xr--`. Break it down like this:
+
+| Position | Characters | Meaning |
+|----------|-----------|---------|
+| 1 | `-` or `d` or `l` | File type: `-` = regular file, `d` = directory, `l` = symlink |
+| 2–4 | `rwx` | **Owner (user)** permissions: read, write, execute |
+| 5–7 | `r-x` | **Group** permissions: read, write, execute |
+| 8–10 | `r--` | **Other** (world) permissions: read, write, execute |
+
+A `-` in any permission slot means that permission is not granted.
+
+## Octal Notation
+
+Permissions are commonly expressed as three octal digits, one per scope (owner, group, other). Each digit is the sum of the values for the granted permissions.
+
+| Octal | Binary | Permissions |
+|-------|--------|------------|
+| `7` | `111` | `rwx` |
+| `6` | `110` | `rw-` |
+| `5` | `101` | `r-x` |
+| `4` | `100` | `r--` |
+| `3` | `011` | `-wx` |
+| `2` | `010` | `-w-` |
+| `1` | `001` | `--x` |
+| `0` | `000` | `---` |
+
+So `755` means `rwxr-xr-x`: the owner can read, write, and execute; the group and others can read and execute.
+
+## Changing Permissions with chmod
+
+Use `chmod` to set or modify the permission bits on a file or directory.
+
+```bash
+chmod 755 script.sh          # rwxr-xr-x
+chmod 644 config.txt         # rw-r--r--
+chmod +x deploy.sh           # add execute for all
+chmod u+w,g-w file.txt       # symbolic mode
+chmod -R 750 /var/www/html   # recursive
+```
+
+<Tabs>
+  <Tab title="Octal Mode">
+    Specify all three permission scopes in one numeric argument. This is the most concise form and is commonly used in scripts.
+
+    ```bash
+    chmod 755 script.sh    # owner: rwx | group: r-x | other: r-x
+    chmod 600 private.key  # owner: rw- | group: --- | other: ---
+    ```
+  </Tab>
+  <Tab title="Symbolic Mode">
+    Use letters to add (`+`), remove (`-`), or set (`=`) permissions for specific scopes: `u` (user/owner), `g` (group), `o` (other), `a` (all).
+
+    ```bash
+    chmod u+x script.sh        # add execute for owner
+    chmod go-w sensitive.txt   # remove write from group and other
+    chmod a=r readonly.txt     # set read-only for everyone
+    ```
+  </Tab>
+</Tabs>
+
+## Changing Ownership with chown
+
+Use `chown` to change the user owner, the group owner, or both at once.
+
+```bash
+chown alice file.txt
+chown alice:developers file.txt
+chown -R www-data:www-data /var/www
+```
+
+## Changing Group Ownership with chgrp
+
+Use `chgrp` when you only need to change the group without touching the owner.
+
+```bash
+chgrp developers project/
+chgrp -R staff /opt/app
+```
+
+## Special Permission Bits
+
+Beyond the standard read/write/execute bits, Linux supports three special permission flags.
+
+```bash
+chmod u+s /usr/bin/program   # setuid
+chmod g+s /shared/dir        # setgid
+chmod +t /tmp                # sticky bit
+```
+
+| Bit | Effect on Files | Effect on Directories |
+|-----|-----------------|-----------------------|
+| **setuid** (`u+s`) | File executes with the owner's privileges | No common effect |
+| **setgid** (`g+s`) | File executes with the group's privileges | New files inherit the directory's group |
+| **sticky bit** (`+t`) | No common effect | Only the file owner can delete their files (used on `/tmp`) |
+
+<Note>
+  Changing permissions on files in system directories like `/etc`, `/usr`, or `/var` typically requires `sudo`. Running `chmod` or `chown` without elevated privileges on files you do not own will result in a "Permission denied" error.
+</Note>

@@ -1,0 +1,186 @@
+---
+title: "Linux Server Security Hardening: Best Practices Guide"
+sidebarTitle: "Security Hardening"
+description: "Harden your Linux server by configuring SSH, Fail2ban, UFW, automatic updates, auditd, and file integrity monitoring to reduce your attack surface."
+---
+
+Security hardening is not a single action but a layered strategy sometimes called *defense in depth*. The idea is that no single control is perfect, so you stack multiple overlapping protections — patch management, access restrictions, intrusion detection, audit logging — so that an attacker who bypasses one layer still faces several more. This guide covers the most impactful steps you can take to harden a fresh Linux server before it faces the internet.
+
+<Warning>
+  Always keep a second terminal session open and authenticated before applying hardening changes, especially SSH configuration. If you lock yourself out, you will need console or out-of-band access to recover. Test every change before closing your existing session.
+</Warning>
+
+## Keep the System Updated
+
+Unpatched software is the most common entry point for attackers. Apply security updates as soon as they are available.
+
+```bash
+sudo apt update && sudo apt upgrade -y
+
+# Automatic security updates
+sudo apt install unattended-upgrades
+sudo dpkg-reconfigure unattended-upgrades
+```
+
+`unattended-upgrades` installs security patches automatically in the background. The `dpkg-reconfigure` command walks you through the initial configuration interactively. Review `/etc/apt/apt.conf.d/50unattended-upgrades` to fine-tune which update categories are applied automatically.
+
+## Harden SSH
+
+SSH is the most commonly attacked service on internet-facing servers. Tighten its configuration by editing `/etc/ssh/sshd_config`:
+
+```
+PermitRootLogin no
+PasswordAuthentication no
+PubkeyAuthentication yes
+X11Forwarding no
+AllowUsers alice bob
+LoginGraceTime 30
+MaxAuthTries 3
+```
+
+Apply the changes by restarting sshd — but verify your SSH key works in a new session first:
+
+```bash
+sudo systemctl restart sshd
+```
+
+<Note>
+  Setting `PasswordAuthentication no` means you **must** have your SSH public key installed in `~/.ssh/authorized_keys` before restarting sshd. Locking yourself out of a cloud server without password auth and without a key is a painful recovery experience.
+</Note>
+
+## Fail2ban: Brute-Force Protection
+
+Fail2ban monitors log files and automatically bans IP addresses that show signs of automated attacks, such as repeated failed SSH login attempts.
+
+<Steps>
+  <Step title="Install and enable Fail2ban">
+    ```bash
+    sudo apt install fail2ban
+    sudo systemctl enable --now fail2ban
+    ```
+  </Step>
+  <Step title="Create a local configuration">
+    Never edit `/etc/fail2ban/jail.conf` directly — it will be overwritten on upgrades. Create `/etc/fail2ban/jail.local` instead:
+
+    ```ini
+    [DEFAULT]
+    bantime = 3600
+    findtime = 600
+    maxretry = 3
+
+    [sshd]
+    enabled = true
+    port = ssh
+    logpath = %(sshd_log)s
+    ```
+
+    This bans an IP for one hour after 3 failed attempts within 10 minutes.
+  </Step>
+  <Step title="Manage bans">
+    ```bash
+    sudo fail2ban-client status sshd
+    sudo fail2ban-client set sshd unbanip 1.2.3.4
+    ```
+  </Step>
+</Steps>
+
+## Configure the Firewall
+
+Use `ufw` (Uncomplicated Firewall) to restrict network access to only the services you intentionally expose.
+
+```bash
+sudo ufw default deny incoming
+sudo ufw default allow outgoing
+sudo ufw allow ssh
+sudo ufw enable
+```
+
+Add rules for any additional services before enabling the firewall:
+
+```bash
+sudo ufw allow 80/tcp                # HTTP
+sudo ufw allow 443/tcp               # HTTPS
+sudo ufw allow from 10.0.0.0/24      # allow entire subnet
+sudo ufw status verbose              # review all rules
+```
+
+## Minimize Running Services
+
+Every running service is a potential attack surface. Disable anything you do not need.
+
+```bash
+systemctl list-units --type=service --state=running
+sudo systemctl disable service-you-dont-need
+sudo systemctl stop service-you-dont-need
+```
+
+Check which ports are actually listening before and after each change to confirm the service is fully stopped:
+
+```bash
+ss -tuln
+sudo nmap -sV localhost
+```
+
+## Audit Logging with auditd
+
+`auditd` records system calls and file access events to a tamper-evident log, giving you a trail of who did what on the system.
+
+```bash
+sudo apt install auditd
+sudo systemctl enable --now auditd
+sudo auditctl -w /etc/passwd -p wa -k passwd_changes
+sudo ausearch -k passwd_changes
+sudo aureport --summary
+```
+
+The `-w /etc/passwd -p wa` rule watches the passwd file for write (`w`) and attribute-change (`a`) events. The `-k` flag attaches a searchable key to the rule so you can retrieve matching events with `ausearch -k passwd_changes`.
+
+<Note>
+  Rules added with `auditctl` are temporary and lost on reboot. To make them permanent, add them to `/etc/audit/rules.d/audit.rules` instead. For example: `-w /etc/passwd -p wa -k passwd_changes`. Run `sudo augenrules --load` to apply the file without rebooting.
+</Note>
+
+## File Integrity with AIDE
+
+AIDE (Advanced Intrusion Detection Environment) builds a database of file checksums and attributes, then alerts you when files change unexpectedly.
+
+```bash
+sudo apt install aide
+sudo aideinit
+sudo aide --check
+```
+
+Run `aide --check` regularly — ideally as a cron job — and compare its output against your baseline. Unexpected changes to binaries, configuration files, or libraries can indicate a compromise.
+
+## sudo Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Edit safely" icon="pen" href="sysadmin/security-hardening">
+    Always use `sudo visudo` to edit the sudoers file. It validates the syntax before saving, preventing a broken sudoers file from locking you out of sudo entirely.
+  </Card>
+  <Card title="Least privilege" icon="lock" href="sysadmin/security-hardening">
+    Grant users only the specific commands they need, not blanket `ALL=(ALL) ALL`. Use `NOPASSWD` only for specific, low-risk commands in automation contexts.
+  </Card>
+</CardGroup>
+
+All sudo usage is logged to `/var/log/auth.log` and the systemd journal by default. Review this log periodically for unexpected privilege escalation.
+
+## User Account Hygiene
+
+Unused accounts with login shells are a risk. Audit your user base regularly.
+
+```bash
+# List users with login shells
+grep -v nologin /etc/passwd | grep -v false
+
+# Check for empty passwords
+sudo awk -F: '($2 == "") {print $1}' /etc/shadow
+
+# Lock unused accounts
+sudo usermod -L unuseduser
+```
+
+Lock accounts rather than deleting them when you are unsure whether a service depends on them. A locked account cannot log in interactively but can still own files and processes.
+
+<Tip>
+  The **CIS Benchmarks** (Center for Internet Security) provide exhaustive, evidence-based hardening checklists for every major Linux distribution and common server software. Download the free PDF at [cisecurity.org](https://www.cisecurity.org/cis-benchmarks/) and work through it after completing the steps in this guide. The benchmarks are scored — each control is marked as Level 1 (essential) or Level 2 (defense in depth) — so you can prioritize appropriately.
+</Tip>

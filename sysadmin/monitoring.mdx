@@ -1,0 +1,157 @@
+---
+title: "Linux System Monitoring: Metrics, Logs, and journalctl"
+sidebarTitle: "Monitoring"
+description: "Monitor Linux system health with top, htop, vmstat, and iostat. Manage logs with journalctl, logrotate, and understand /var/log directory structure."
+---
+
+Effective system monitoring means watching two things simultaneously: performance metrics and logs. Performance monitoring tells you when something is under strain — high CPU, memory pressure, saturated disk I/O — while log monitoring tells you *why*. Together they let you catch problems before they become outages, diagnose incidents faster, and build a historical record of your system's behavior over time.
+
+## Real-Time Resource Monitoring
+
+These tools give you a live view of what your system is doing right now.
+
+```bash
+top                                  # CPU, memory, processes
+htop                                 # enhanced (sudo apt install htop)
+atop                                 # advanced monitor
+glances                              # all-in-one overview
+```
+
+<CardGroup cols={2}>
+  <Card title="htop" icon="gauge" href="sysadmin/monitoring">
+    A color-coded, interactive process viewer with easy sorting and filtering. Use arrow keys to navigate and `F9` to send signals to processes.
+  </Card>
+  <Card title="glances" icon="eye" href="sysadmin/monitoring">
+    Shows CPU, memory, disk, network, and processes in a single terminal view. Supports remote monitoring via a web interface or API.
+  </Card>
+</CardGroup>
+
+## CPU and Memory Statistics
+
+For scripting and deeper analysis, use these non-interactive tools that print structured output you can log or pipe to other commands.
+
+```bash
+vmstat 1 5                           # system stats every 1s, 5 times
+mpstat -P ALL 1                      # per-CPU stats
+free -h                              # memory usage
+cat /proc/meminfo                    # detailed memory
+uptime                               # load averages
+lscpu                                # CPU information
+```
+
+The load average shown by `uptime` represents the average number of processes waiting for CPU time over the last 1, 5, and 15 minutes. A load average consistently higher than your CPU core count indicates the system is under strain.
+
+## Disk I/O Monitoring
+
+High disk I/O is a common cause of sluggish systems. These tools help you find what is causing it.
+
+```bash
+iostat -x 1                          # extended I/O stats
+iotop                                # per-process I/O
+dstat                                # combined stats
+```
+
+<Note>
+  `iotop` requires root privileges: run it with `sudo iotop`. Look at the `DISK READ` and `DISK WRITE` columns to identify the process generating the most I/O.
+</Note>
+
+## Network Monitoring
+
+```bash
+ss -s                                # socket statistics summary
+ss -tuln                             # listening ports
+iftop                                # bandwidth by connection
+nethogs                              # bandwidth by process
+sar -n DEV 1                         # network interface stats
+```
+
+`ss -tuln` is the modern replacement for `netstat -tuln` and is faster on systems with many connections. Use it to quickly see which ports your server is listening on.
+
+## Log File Locations
+
+Linux services write logs to `/var/log/`. Knowing where to look saves time during an incident.
+
+| Log file | Contents |
+|---|---|
+| `/var/log/syslog` or `/var/log/messages` | General system activity |
+| `/var/log/auth.log` | Authentication and sudo events |
+| `/var/log/kern.log` | Kernel messages |
+| `/var/log/dmesg` | Boot-time hardware messages |
+| `/var/log/apt/` | Package installation and removal |
+| `/var/log/nginx/` | Web server access and error logs |
+
+## Viewing and Filtering Log Files
+
+```bash
+tail -f /var/log/syslog              # follow in real time
+grep -i error /var/log/syslog       # filter for errors
+less /var/log/auth.log               # paginated view
+dmesg | tail -20                     # recent kernel messages
+dmesg | grep -i error
+```
+
+Combine `grep` with `-A` and `-B` flags to show lines around a match: `grep -i error -A 5 /var/log/syslog` shows 5 lines of context after each error, which often reveals the cause.
+
+## journalctl: systemd Journal
+
+systemd routes all service logs to a structured binary journal. `journalctl` is the tool for querying it.
+
+```bash
+journalctl                           # all logs
+journalctl -f                        # follow
+journalctl -u nginx                  # service-specific
+journalctl --since "2024-01-01"
+journalctl --since "1 hour ago"
+journalctl -p err                    # errors and above
+journalctl --disk-usage
+```
+
+<Tabs>
+  <Tab title="Priority levels">
+    The `-p` flag accepts syslog priority levels: `emerg`, `alert`, `crit`, `err`, `warning`, `notice`, `info`, `debug`. Specifying a level shows that level and all higher-severity levels — so `-p err` shows errors, critical messages, alerts, and emergencies.
+  </Tab>
+  <Tab title="Combining filters">
+    Filters compose naturally:
+
+    ```bash
+    journalctl -u nginx -p err --since "2024-01-01" --until "2024-01-02"
+    ```
+
+    This shows only error-level and above messages from the nginx service on January 1st, 2024.
+  </Tab>
+</Tabs>
+
+## logrotate: Managing Log Growth
+
+Without rotation, log files grow until they fill your disk. `logrotate` handles this automatically on most distributions. To configure rotation for a custom application, create a file in `/etc/logrotate.d/`:
+
+```
+/var/log/myapp/*.log {
+    daily
+    rotate 14
+    compress
+    delaycompress
+    missingok
+    notifempty
+    create 0640 myapp myapp
+    postrotate
+        systemctl reload myapp
+    endscript
+}
+```
+
+Key directives:
+- `rotate 14` — keep 14 rotated logs before deleting
+- `compress` / `delaycompress` — gzip old logs, but not the most recent rotation
+- `missingok` — don't error if the log file is missing
+- `postrotate` — run a command after rotating (useful for telling the app to re-open its log file)
+
+Test your configuration without making changes:
+
+```bash
+sudo logrotate --debug /etc/logrotate.d/myapp
+```
+
+<Tip>
+  For production systems with multiple servers, consider a dedicated monitoring stack. **Prometheus** collects metrics, **Grafana** visualizes them, and **Alertmanager** routes alerts to Slack, PagerDuty, or email when thresholds are breached. The Prometheus `node_exporter` agent exposes all the Linux metrics covered on this page in a format Prometheus can scrape.
+</Tip>

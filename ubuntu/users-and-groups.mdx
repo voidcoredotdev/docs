@@ -1,0 +1,127 @@
+---
+title: "Ubuntu User Management: useradd, usermod, and sudo"
+sidebarTitle: "Users & Groups"
+description: "Create, modify, and delete user accounts and groups in Ubuntu. Learn useradd, usermod, userdel, groupadd, and how to manage sudo privileges."
+---
+
+Every process and file on an Ubuntu system is associated with a user and a group, making user and group management a foundational skill for any system administrator. Ubuntu stores user accounts in `/etc/passwd`, passwords (hashed) in `/etc/shadow`, and group memberships in `/etc/group`. You manage all of these through a set of command-line tools — `useradd`, `usermod`, `userdel`, `groupadd`, `groupmod`, and `groupdel` — that keep these files consistent and handle home directory creation, default shell assignment, and group wiring automatically.
+
+## Creating and Managing User Accounts
+
+Ubuntu provides two tools for creating users: the lower-level `useradd` (requires explicit flags) and the friendlier `adduser` (interactive, sets up a home directory and prompts for a password automatically). Use `adduser` when working interactively; use `useradd` in scripts.
+
+```bash
+# Create a user with a home directory and bash as the default shell
+sudo useradd -m -s /bin/bash alice
+
+# Create a user and immediately add them to the sudo group
+sudo useradd -m -s /bin/bash -G sudo alice
+
+# Set or change a user's password
+sudo passwd alice
+
+# Create a user interactively (recommended for manual setup)
+sudo adduser alice
+
+# Add an existing user to an additional group (append with -a, never omit it)
+sudo usermod -aG developers alice
+
+# Change a user's default shell
+sudo usermod -s /bin/zsh alice
+
+# Change a user's home directory
+sudo usermod -d /new/home alice
+
+# Rename a user account
+sudo usermod -l newname alice
+
+# Delete a user but keep their home directory
+sudo userdel alice
+
+# Delete a user and remove their home directory and mail spool
+sudo userdel -r alice
+```
+
+<Warning>
+  Always use `usermod -aG` (append + group) rather than `usermod -G` alone. Omitting `-a` replaces all of the user's existing supplementary groups with only the one you specify — a common mistake that silently removes access to other groups.
+</Warning>
+
+<Tip>
+  Files in `/etc/skel/` are automatically copied into every new user's home directory when it is created. Place default shell configs (`.bashrc`, `.profile`) or template files there to give all new users a consistent starting environment.
+</Tip>
+
+## Viewing User Information
+
+Inspect user accounts, current identity, and group membership without modifying anything.
+
+```bash
+id alice                                 # display uid, primary gid, and all group memberships
+whoami                                   # show the username of the currently active session
+groups alice                             # list all groups the user belongs to
+cat /etc/passwd | grep alice             # view alice's raw entry in the passwd file
+getent passwd alice                      # query the user database (works with LDAP/NIS too)
+```
+
+The `getent` command is preferred over directly reading `/etc/passwd` in environments that use centralized identity providers like LDAP, as it queries all configured name service sources.
+
+## Creating and Managing Groups
+
+Groups let you assign shared permissions to a set of users. Create a group, add members, rename it, or delete it as your team structure changes.
+
+```bash
+sudo groupadd developers                 # create a new group
+
+sudo groupmod -n devs developers         # rename the group from "developers" to "devs"
+
+sudo groupdel developers                 # delete a group (does not remove users or their files)
+
+# View current members of a group
+getent group developers
+cat /etc/group | grep developers
+```
+
+<Note>
+  Deleting a group with `groupdel` does **not** delete the users in it. However, if any files on the filesystem have that group as their owning group, those files will show a numeric GID instead of a name — clean those up after deleting a group.
+</Note>
+
+## Managing sudo Access
+
+The `sudo` group grants its members the ability to run commands as root. Add a user to this group to give them administrative access, or use the `sudoers` file for more granular control.
+
+```bash
+# Grant sudo access by adding the user to the sudo group
+sudo usermod -aG sudo alice
+
+# Open the sudoers file safely with visudo (validates syntax before saving)
+sudo visudo
+```
+
+Inside the `sudoers` file, add a line like the following to grant full sudo access to a specific user:
+
+```
+alice ALL=(ALL:ALL) ALL
+```
+
+To allow a user to run a specific command without a password prompt:
+
+```
+alice ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart nginx
+```
+
+<Warning>
+  **Never edit `/etc/sudoers` directly with a text editor.** A syntax error in that file can lock you out of all sudo access on the system. Always use `visudo`, which validates syntax before writing changes.
+</Warning>
+
+## Switching Users
+
+Switch between user accounts or run individual commands under a different identity.
+
+```bash
+su - alice                               # switch to alice's session with her full environment
+sudo -u alice command                    # run a single command as alice without switching sessions
+sudo -i                                  # open an interactive root shell
+```
+
+<Tip>
+  Use `sudo -u alice command` for one-off tasks instead of a full `su - alice` switch — it avoids leaving a separate shell session open and is easier to audit in system logs.
+</Tip>

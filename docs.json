@@ -1,0 +1,78 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "luma",
+  "name": "Voidcore Wiki",
+  "colors": {
+    "primary": "#040404",
+    "light": "#0c7ebc",
+    "dark": "#d2e1ea"
+  },
+  "favicon": "https://media.brand.dev/593270eb-a368-4fa3-aa63-43f17d466f26.svg",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "contributing"
+            ]
+          },
+          {
+            "group": "Linux Essentials",
+            "pages": [
+              "linux/overview",
+              "linux/file-system",
+              "linux/permissions",
+              "linux/processes",
+              "linux/shell-basics"
+            ]
+          },
+          {
+            "group": "Ubuntu",
+            "pages": [
+              "ubuntu/overview",
+              "ubuntu/installation",
+              "ubuntu/package-management",
+              "ubuntu/acls",
+              "ubuntu/users-and-groups"
+            ]
+          },
+          {
+            "group": "Networking",
+            "pages": [
+              "networking/overview",
+              "networking/ip-addressing",
+              "networking/dns",
+              "networking/firewall",
+              "networking/ssh"
+            ]
+          },
+          {
+            "group": "System Administration",
+            "pages": [
+              "sysadmin/services",
+              "sysadmin/storage",
+              "sysadmin/backups",
+              "sysadmin/monitoring",
+              "sysadmin/security-hardening"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "navbar": {
+    "primary": {
+      "type": "button",
+      "label": "Visit Wiki",
+      "href": "https://wiki.voidcore.dev"
+    }
+  },
+  "footer": {
+    "socials": {}
+  }
+}

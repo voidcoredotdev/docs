@@ -1,0 +1,146 @@
+---
+title: "Linux Shell Basics: Essential Commands and Shortcuts"
+sidebarTitle: "Shell Basics"
+description: "Master the Linux command line with essential shell commands, input/output redirection, pipes, environment variables, and useful keyboard shortcuts."
+---
+
+The shell is a command-line interpreter that lets you communicate directly with the Linux kernel by typing text commands. While graphical interfaces are convenient, the shell gives you speed, precision, and automation capabilities that no GUI can match — from filtering thousands of log lines in milliseconds to chaining complex operations with a single one-liner. Most Linux systems default to Bash (Bourne Again Shell), so the examples here apply to any standard Bash environment.
+
+## Essential Commands
+
+These commands form the foundation of daily shell work. Combine them with pipes and redirection to build powerful workflows.
+
+| Command | Purpose |
+|---------|---------|
+| `echo` | Print text or variable values to the terminal |
+| `cat` | Display file contents or concatenate multiple files |
+| `less` | Page through file contents (supports search with `/`) |
+| `more` | Simpler pager for scrolling through output |
+| `head` | Show the first N lines of a file (default 10) |
+| `tail` | Show the last N lines of a file (default 10) |
+| `grep` | Search for patterns in text using regular expressions |
+| `wc` | Count lines (`-l`), words (`-w`), or bytes (`-c`) |
+| `sort` | Sort lines alphabetically or numerically |
+| `uniq` | Remove or report duplicate adjacent lines |
+| `cut` | Extract fields or character ranges from each line |
+| `tr` | Translate or delete characters (e.g., lowercase to uppercase) |
+
+## Input/Output Redirection
+
+By default, commands read from standard input (stdin) and write to standard output (stdout), with errors going to standard error (stderr). Redirection operators let you point these streams to files instead.
+
+```bash
+command > output.txt          # redirect stdout (overwrite)
+command >> output.txt         # redirect stdout (append)
+command 2> errors.txt         # redirect stderr
+command &> all.txt            # redirect both stdout and stderr
+command < input.txt           # redirect stdin
+```
+
+<Note>
+  Use `>>` instead of `>` when you want to add output to an existing file rather than replace it. Using `>` on an existing file silently overwrites its contents.
+</Note>
+
+## Pipes
+
+Pipes (`|`) connect the stdout of one command directly to the stdin of the next, letting you build multi-step processing chains without temporary files.
+
+```bash
+ps aux | grep nginx
+cat /var/log/syslog | grep ERROR | tail -20
+ls -la | sort -k5 -n          # sort by file size (column 5)
+```
+
+<Tip>
+  You can chain as many pipes as you need. Think of each `|` as handing the output of one tool to the next specialist in line.
+</Tip>
+
+## Useful Command Examples
+
+```bash
+grep -r "search term" /etc/   # recursive search through directory
+grep -i "error" logfile.txt   # case-insensitive search
+tail -f /var/log/syslog       # follow log in real time
+head -n 20 bigfile.txt        # first 20 lines
+wc -l file.txt                # count lines
+```
+
+<CodeGroup>
+```bash Text Processing
+# Count occurrences of a word
+grep -o "error" logfile.txt | wc -l
+
+# Extract the second column from a CSV
+cut -d',' -f2 data.csv
+
+# Remove duplicate lines from a sorted file
+sort names.txt | uniq
+
+# Convert text to uppercase
+echo "hello world" | tr 'a-z' 'A-Z'
+```
+
+```bash Log Analysis
+# Show last 50 lines of a log and keep watching
+tail -n 50 -f /var/log/auth.log
+
+# Find all unique IPs in an access log
+cut -d' ' -f1 /var/log/nginx/access.log | sort | uniq -c | sort -rn
+
+# Count error types
+grep "ERROR" app.log | cut -d']' -f2 | sort | uniq -c
+```
+</CodeGroup>
+
+## Environment Variables
+
+Environment variables store configuration values that are available to your shell session and the programs you launch from it.
+
+```bash
+echo $HOME
+echo $PATH
+export MY_VAR="value"         # set for current session
+printenv                      # list all environment variables
+```
+
+<Steps>
+  <Step title="View a variable">
+    Prefix the variable name with `$` to expand its value. Use `echo $VARIABLE_NAME` to print it.
+  </Step>
+  <Step title="Set a temporary variable">
+    Run `export MY_VAR="value"` to create a variable available to the current session and any child processes. It disappears when you close the terminal.
+  </Step>
+  <Step title="Make it permanent">
+    Add the `export` line to `~/.bashrc` (for interactive shells) or `~/.profile` (for login shells), then run `source ~/.bashrc` to apply changes immediately.
+  </Step>
+</Steps>
+
+## Keyboard Shortcuts
+
+These shortcuts save time and are worth memorising from day one.
+
+| Shortcut | Action |
+|----------|--------|
+| **Ctrl+C** | Interrupt (terminate) the running command |
+| **Ctrl+D** | Send EOF; exits the shell if the prompt is empty |
+| **Ctrl+Z** | Suspend the foreground process (resume with `fg` or `bg`) |
+| **Ctrl+R** | Reverse search through command history |
+| **Tab** | Autocomplete commands, file names, and paths |
+| **Ctrl+L** | Clear the terminal screen (same as `clear`) |
+| **Ctrl+A** | Move cursor to the beginning of the line |
+| **Ctrl+E** | Move cursor to the end of the line |
+| **Ctrl+W** | Delete the word before the cursor |
+
+## Command History
+
+Bash keeps a record of every command you run, stored in `~/.bash_history`.
+
+```bash
+history                       # show command history with line numbers
+!!                            # repeat the last command
+!grep                         # repeat the last command starting with "grep"
+```
+
+<Tip>
+  Speed up repetitive work by creating aliases in your `~/.bashrc` file. For example, add `alias ll='ls -lah'` to create a shorthand for a detailed directory listing. After saving the file, run `source ~/.bashrc` to activate it in your current session.
+</Tip>

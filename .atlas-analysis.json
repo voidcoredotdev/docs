@@ -1,0 +1,88 @@
+{
+  "projectType": "saas",
+  "projectName": "Voidcore Wiki",
+  "projectDescription": "A community-driven technical knowledge base covering Linux, Ubuntu, networking, and system administration topics.",
+  "theme": "luma",
+  "primaryColor": "#040404",
+  "lightColor": "#0c7ebc",
+  "darkColor": "#d2e1ea",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "contributing"
+            ]
+          },
+          {
+            "group": "Linux Essentials",
+            "pages": [
+              "linux/overview",
+              "linux/file-system",
+              "linux/permissions",
+              "linux/processes",
+              "linux/shell-basics"
+            ]
+          },
+          {
+            "group": "Ubuntu",
+            "pages": [
+              "ubuntu/overview",
+              "ubuntu/installation",
+              "ubuntu/package-management",
+              "ubuntu/acls",
+              "ubuntu/users-and-groups"
+            ]
+          },
+          {
+            "group": "Networking",
+            "pages": [
+              "networking/overview",
+              "networking/ip-addressing",
+              "networking/dns",
+              "networking/firewall",
+              "networking/ssh"
+            ]
+          },
+          {
+            "group": "System Administration",
+            "pages": [
+              "sysadmin/services",
+              "sysadmin/storage",
+              "sysadmin/backups",
+              "sysadmin/monitoring",
+              "sysadmin/security-hardening"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Linux and Ubuntu system administration guides",
+    "Networking configuration and troubleshooting",
+    "Access control and permissions management",
+    "Package management and software installation",
+    "Security hardening and best practices",
+    "Shell scripting and command-line usage",
+    "Storage and disk management",
+    "System monitoring and logging",
+    "SSH configuration and remote access",
+    "Backup strategies and tools"
+  ],
+  "publicApiSurface": [
+    "ACLs (setfacl, getfacl)",
+    "apt / apt-get package manager",
+    "systemctl / systemd service management",
+    "iptables / ufw firewall",
+    "ssh / sshd configuration",
+    "chmod / chown / chgrp permissions",
+    "df / du / lsblk storage tools",
+    "journalctl / syslog logging"
+  ]
+}

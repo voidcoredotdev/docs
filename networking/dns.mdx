@@ -1,0 +1,120 @@
+---
+title: "DNS Configuration and Troubleshooting on Ubuntu Linux"
+sidebarTitle: "DNS"
+description: "Configure DNS resolvers on Linux, edit /etc/resolv.conf and /etc/hosts, use dig, nslookup, and host to query DNS records and troubleshoot resolution."
+---
+
+DNS (Domain Name System) translates human-readable hostnames like `example.com` into IP addresses your system can route traffic to. On Linux, name resolution follows a layered order: the system checks `/etc/hosts` for local overrides first, then queries the DNS resolvers listed in `/etc/resolv.conf` (or managed by `systemd-resolved` on modern Ubuntu). Understanding this stack lets you override specific names locally, point your system at fast public resolvers, and quickly diagnose why a hostname is not resolving as expected.
+
+## Configuring /etc/resolv.conf
+
+`/etc/resolv.conf` tells the system which DNS servers to query and which domain suffixes to append to short names.
+
+```
+nameserver 8.8.8.8
+nameserver 8.8.4.4
+search example.com
+```
+
+<Note>
+  On systems running `systemd-resolved`, `/etc/resolv.conf` is typically a symlink to a file managed automatically by the service. Editing it directly may result in your changes being overwritten. Configure DNS through Netplan or `resolvectl` instead to ensure persistence.
+</Note>
+
+## systemd-resolved
+
+Most modern Ubuntu installations use `systemd-resolved` as the local DNS stub resolver. It listens on `127.0.0.53` and caches responses to improve lookup speed.
+
+```bash
+resolvectl status                  # show DNS config per interface
+resolvectl query example.com       # query a name
+sudo systemctl restart systemd-resolved
+```
+
+To set static DNS servers persistently, add a `nameservers` block to your Netplan configuration:
+
+```yaml
+nameservers:
+  addresses:
+    - 1.1.1.1
+    - 1.0.0.1
+```
+
+Then run `sudo netplan apply` for the change to take effect.
+
+## Local Overrides with /etc/hosts
+
+`/etc/hosts` is checked before any DNS query is made. Use it to define local hostname mappings or override public DNS for specific names.
+
+```
+127.0.0.1   localhost
+192.168.1.10 myserver.local myserver
+```
+
+<Tip>
+  `/etc/hosts` is ideal for development environments where you want to point a domain to a local server without touching DNS. Add an entry like `127.0.0.1 app.local` and your browser will resolve it immediately without any DNS changes.
+</Tip>
+
+## DNS Lookup Tools
+
+<Tabs>
+  <Tab title="dig">
+    `dig` is the most powerful DNS query tool available on Linux. It gives you full control over record type, resolver, and output format.
+
+    ```bash
+    dig example.com                    # full DNS query
+    dig example.com A                  # A record
+    dig example.com MX                 # MX record
+    dig @8.8.8.8 example.com          # use specific resolver
+    dig +short example.com             # IP only
+    ```
+  </Tab>
+  <Tab title="nslookup">
+    `nslookup` is a simpler interactive or one-shot query tool available on most systems.
+
+    ```bash
+    nslookup example.com
+    nslookup example.com 8.8.8.8
+    ```
+  </Tab>
+  <Tab title="host">
+    `host` provides a concise one-line output, useful for quick checks in scripts.
+
+    ```bash
+    host example.com
+    host -t MX example.com
+    ```
+  </Tab>
+</Tabs>
+
+## Reverse DNS Lookups
+
+Reverse DNS maps an IP address back to a hostname. This is useful for auditing logs, verifying mail server identity, and network diagnostics.
+
+```bash
+dig -x 8.8.8.8
+host 8.8.8.8
+```
+
+## Flushing the DNS Cache
+
+If you have recently changed a DNS record or `/etc/hosts` and need the system to pick up the new value immediately, flush the local cache:
+
+```bash
+sudo resolvectl flush-caches
+```
+
+## Common DNS Record Types
+
+| Record | Purpose |
+|--------|---------|
+| **A** | Maps a hostname to an IPv4 address |
+| **AAAA** | Maps a hostname to an IPv6 address |
+| **CNAME** | Alias that points one hostname to another |
+| **MX** | Specifies mail servers for a domain |
+| **TXT** | Stores arbitrary text; used for SPF, DKIM, and domain verification |
+| **NS** | Identifies the authoritative nameservers for a domain |
+| **PTR** | Reverse lookup — maps an IP address to a hostname |
+
+<Tip>
+  Use **1.1.1.1** (Cloudflare) or **8.8.8.8** (Google) as your upstream resolvers for fast, reliable public DNS. Cloudflare's 1.1.1.1 is consistently among the fastest resolvers globally and supports DNS-over-HTTPS and DNS-over-TLS for added privacy.
+</Tip>

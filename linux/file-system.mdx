@@ -1,0 +1,84 @@
+---
+title: "Navigating the Linux Filesystem Hierarchy Standard"
+sidebarTitle: "File System"
+description: "Understand the Linux Filesystem Hierarchy Standard (FHS): key directories like /etc, /var, /home, /usr, and how to navigate and manage files."
+---
+
+Linux organizes all files under a single root directory (`/`), following the Filesystem Hierarchy Standard (FHS) — a convention that defines where different types of files live. Unlike Windows, which assigns drive letters to separate storage volumes, Linux mounts everything into one unified tree. Understanding where configuration files, binaries, logs, and user data reside helps you find what you need quickly and avoid making changes in the wrong place.
+
+## Key Directories
+
+| Directory | Purpose |
+|-----------|---------|
+| `/` | Root of the entire filesystem; every path starts here |
+| `/home` | Personal directories for regular users (e.g., `/home/alice`) |
+| `/etc` | System-wide configuration files |
+| `/var` | Variable data: logs, databases, mail spools, caches |
+| `/tmp` | Temporary files; cleared on reboot |
+| `/usr` | User-space programs, libraries, and documentation |
+| `/bin` | Essential user binaries (ls, cp, mv, etc.) |
+| `/sbin` | System administration binaries (fdisk, iptables, etc.) |
+| `/opt` | Optional third-party software packages |
+| `/dev` | Device files representing hardware (disks, terminals, etc.) |
+| `/proc` | Virtual filesystem exposing kernel and process information |
+| `/sys` | Virtual filesystem for hardware and driver configuration |
+
+## Navigating the File System
+
+Use these commands to move around and inspect the directory tree.
+
+```bash
+pwd           # print current directory
+ls -la        # list with details and hidden files
+cd /etc       # change directory
+cd ~          # go to home directory
+cd ..         # go up one level
+```
+
+<Tip>
+  Run `ls -lah` to display file sizes in human-readable format (KB, MB, GB) alongside the standard long listing.
+</Tip>
+
+## File Operations
+
+Copy, move, rename, delete, and create files and directories with these essential commands.
+
+```bash
+cp source.txt dest.txt
+mv oldname.txt newname.txt
+rm file.txt
+rm -rf directory/
+mkdir -p path/to/new/dir
+touch newfile.txt
+```
+
+<Warning>
+  `rm -rf` permanently deletes files and directories without sending them to a trash folder. Double-check your path before running it, especially as root.
+</Warning>
+
+## Searching for Files
+
+Linux provides several tools for locating files across the filesystem.
+
+```bash
+find /etc -name "*.conf"
+find /var/log -type f -mtime -7
+locate filename
+which bash
+```
+
+<Steps>
+  <Step title="Use find for precise searches">
+    `find` searches the live filesystem in real time. Combine flags like `-name`, `-type`, `-size`, and `-mtime` to narrow results.
+  </Step>
+  <Step title="Use locate for fast lookups">
+    `locate` queries a pre-built index for near-instant results. Run `sudo updatedb` first to refresh the index if the file was recently created.
+  </Step>
+  <Step title="Use which to find executables">
+    `which` shows the full path of a command as resolved from your `$PATH`, useful for confirming which version of a program will run.
+  </Step>
+</Steps>
+
+<Tip>
+  Every command on Linux has a built-in manual page. Run `man ls`, `man find`, or `man` followed by any command name to read the full documentation directly in your terminal.
+</Tip>

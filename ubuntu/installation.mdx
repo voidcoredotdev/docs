@@ -1,0 +1,142 @@
+---
+title: "Install Ubuntu Server or Desktop: Step-by-Step Guide"
+sidebarTitle: "Installation"
+description: "Install Ubuntu Server or Desktop from scratch. Download the ISO, create bootable media, partition your disk, and complete the initial system setup."
+---
+
+This guide walks you through installing Ubuntu from a blank machine to a fully booted system, covering both the Desktop edition (graphical installer, ideal for workstations and personal machines) and the Server edition (text-based installer optimized for headless, production environments). The core steps — downloading an ISO, writing it to USB, and following the installer — are the same for both, but the specific prompts and post-install defaults differ. Read through the tab that matches your target environment before you begin.
+
+<Warning>
+  Disk partitioning during installation is **destructive and irreversible**. Any existing data on the target drive will be permanently erased. Back up everything important before proceeding.
+</Warning>
+
+<Tabs>
+  <Tab title="Desktop">
+    The Ubuntu Desktop installer is a fully graphical experience that guides you through each step. It suits developers, students, and anyone who wants a full GUI environment out of the box.
+
+    **What you need:**
+    - A USB drive (8 GB or larger)
+    - A machine with at least 4 GB RAM and 25 GB of disk space
+    - The Ubuntu Desktop ISO from [ubuntu.com](https://ubuntu.com/download/desktop)
+
+    <Steps>
+      <Step title="Download the Ubuntu Desktop ISO">
+        Go to [ubuntu.com/download/desktop](https://ubuntu.com/download/desktop) and download the latest LTS `.iso` file. Verify the checksum before proceeding.
+
+        ```bash
+        # Verify the SHA256 checksum (replace filename as needed)
+        sha256sum ubuntu-24.04-desktop-amd64.iso
+        ```
+      </Step>
+
+      <Step title="Create a bootable USB drive">
+        Use **Balena Etcher** (cross-platform GUI tool) for the easiest experience, or use `dd` on Linux/macOS. Replace `/dev/sdX` with your actual USB device — double-check with `lsblk` first.
+
+        ```bash
+        # Find your USB device
+        lsblk
+
+        # Write the ISO to USB (CAUTION: verify /dev/sdX is correct)
+        sudo dd if=ubuntu-24.04-desktop-amd64.iso of=/dev/sdX bs=4M status=progress oflag=sync
+        ```
+
+        <Tip>
+          [Balena Etcher](https://etcher.balena.io/) is a safer option for beginners — it validates the drive selection and verifies the write automatically.
+        </Tip>
+      </Step>
+
+      <Step title="Boot from the USB drive">
+        Insert the USB drive into the target machine and restart. Enter your BIOS/UEFI firmware (typically by pressing `F2`, `F12`, `Del`, or `Esc` during POST) and set the USB drive as the first boot device. Save and exit to boot into the Ubuntu live environment.
+      </Step>
+
+      <Step title="Follow the graphical installer">
+        Once the live environment loads, click **Install Ubuntu**. Work through the prompts:
+
+        - **Language & keyboard layout** — select your locale
+        - **Installation type** — choose "Normal installation" for a standard setup; select "Erase disk and install Ubuntu" for a clean install on the target drive
+        - **Disk partitioning** — use automatic partitioning unless you have specific requirements
+        - **Time zone** — detected automatically or set manually
+      </Step>
+
+      <Step title="Configure your user account and hostname">
+        The installer prompts you to create your first user account:
+
+        - **Your name** — display name
+        - **Computer name** — the system hostname (e.g., `my-desktop`)
+        - **Username** — your login name (lowercase, no spaces)
+        - **Password** — choose a strong password; enable "Require password to log in"
+      </Step>
+
+      <Step title="Complete installation and reboot">
+        The installer copies files and configures the system. When prompted, click **Restart Now** and remove the USB drive when instructed. The system boots into your new Ubuntu Desktop installation.
+      </Step>
+    </Steps>
+  </Tab>
+
+  <Tab title="Server">
+    The Ubuntu Server installer is a text-based, keyboard-driven interface designed for machines without a GPU or display. It installs a minimal system with no desktop environment.
+
+    **What you need:**
+    - A USB drive (4 GB or larger)
+    - A machine with at least 1 GB RAM and 10 GB of disk space
+    - The Ubuntu Server ISO from [ubuntu.com](https://ubuntu.com/download/server)
+
+    <Steps>
+      <Step title="Download the Ubuntu Server ISO">
+        Go to [ubuntu.com/download/server](https://ubuntu.com/download/server) and download the latest LTS server `.iso`. Verify the checksum after downloading.
+
+        ```bash
+        sha256sum ubuntu-24.04-live-server-amd64.iso
+        ```
+      </Step>
+
+      <Step title="Create a bootable USB drive">
+        Write the ISO to a USB drive using `dd` or Balena Etcher.
+
+        ```bash
+        # Identify your USB device
+        lsblk
+
+        # Write the ISO (verify /dev/sdX before running)
+        sudo dd if=ubuntu-24.04-live-server-amd64.iso of=/dev/sdX bs=4M status=progress oflag=sync
+        ```
+      </Step>
+
+      <Step title="Boot from the USB drive">
+        Insert the USB into the server and power it on. Use the BIOS/UEFI boot menu (usually `F11` or `F12`) to select the USB drive as the boot device.
+      </Step>
+
+      <Step title="Follow the text installer">
+        Navigate the text-based installer using arrow keys and Enter:
+
+        - **Language** — select your preferred language
+        - **Network** — configure a static IP if needed (DHCP is used by default)
+        - **Storage** — use the entire disk or configure custom partitions; enable LVM if you want flexible volume management
+        - **Profile setup** — set your name, hostname, username, and password
+        - **SSH** — select "Install OpenSSH server" to enable remote access immediately
+        - **Snaps** — optionally install featured server snaps (you can skip this)
+      </Step>
+
+      <Step title="Configure your user account and hostname">
+        Enter a hostname that identifies this server on your network (e.g., `web-prod-01`), then set a username and a strong password. The first user is created with `sudo` privileges automatically.
+      </Step>
+
+      <Step title="Complete installation and reboot">
+        The installer downloads any pending updates and finalizes the setup. Select **Reboot Now**, remove the USB drive when prompted, and the server boots into the new installation.
+      </Step>
+    </Steps>
+  </Tab>
+</Tabs>
+
+## Post-Installation Steps
+
+After your system boots for the first time, bring it fully up to date and — if you're on a server — enable SSH for remote access.
+
+```bash
+sudo apt update && sudo apt upgrade -y   # update package index and upgrade all packages
+sudo apt install openssh-server          # enable SSH (server installs only)
+```
+
+<Tip>
+  Always prefer **LTS (Long-Term Support)** versions of Ubuntu for production servers and any environment where you need guaranteed long-term security patches. LTS releases are supported for five years by default, versus nine months for standard releases.
+</Tip>

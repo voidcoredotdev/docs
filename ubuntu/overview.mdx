@@ -1,0 +1,26 @@
+---
+title: "Ubuntu Linux: Setup, Packages, and System Administration"
+sidebarTitle: "Overview"
+description: "Your guide to Ubuntu Linux: installation, package management with apt, user management, access control lists, and core system administration tasks."
+---
+
+Ubuntu is one of the most widely used Linux distributions in the world, valued for its stability, extensive hardware support, and beginner-friendly defaults without sacrificing the power and flexibility that experienced administrators expect. Built on Debian, Ubuntu ships with a rich ecosystem of pre-packaged software, a predictable release cadence, and a massive community — making it a natural choice for everything from personal desktops to production servers. This section walks you through everything you need to get Ubuntu running and well-managed: from initial installation and software management with `apt`, to fine-grained file access control and user administration.
+
+<CardGroup cols={2}>
+  <Card title="Installation" icon="compact-disc" href="/ubuntu/installation">
+    Download the Ubuntu ISO, create bootable media, and walk through the installer for both Desktop and Server editions.
+  </Card>
+  <Card title="Package Management" icon="box-open" href="/ubuntu/package-management">
+    Install, update, remove, and search for software using `apt`, `dpkg`, PPAs, and snap packages.
+  </Card>
+  <Card title="ACLs" icon="lock" href="/ubuntu/acls">
+    Set fine-grained file permissions beyond standard Unix ownership using `setfacl` and `getfacl`.
+  </Card>
+  <Card title="Users & Groups" icon="users" href="/ubuntu/users-and-groups">
+    Create and manage user accounts and groups, assign sudo privileges, and control login access.
+  </Card>
+</CardGroup>
+
+<Note>
+  Ubuntu releases two types of versions: standard releases every six months and **Long-Term Support (LTS)** releases every two years. LTS versions receive security updates and bug fixes for five years (and up to ten with Extended Security Maintenance), making them the recommended choice for servers and any environment where stability matters.
+</Note>

@@ -1,0 +1,131 @@
+---
+title: "Managing Linux Processes: ps, top, kill, and Signals"
+sidebarTitle: "Processes"
+description: "Learn how to view, monitor, and control Linux processes using ps, top, htop, kill, nice, and other process management tools and signals."
+---
+
+Every running program on a Linux system is a process — an instance of an executable with its own memory space, file descriptors, and system resources. The kernel assigns each process a unique Process ID (PID) and tracks its state, priority, CPU usage, and memory consumption. Knowing how to list, inspect, and control processes lets you diagnose runaway applications, gracefully restart services, and tune system performance without rebooting.
+
+## Viewing Processes
+
+Use `ps` to take a snapshot of running processes at a given moment.
+
+```bash
+ps aux                        # all processes with details
+ps -ef                        # full-format listing
+ps aux | grep nginx           # filter by name
+pgrep -l nginx                # list matching processes
+```
+
+<CodeGroup>
+```bash ps aux output columns
+USER       PID  %CPU  %MEM    VSZ   RSS  STAT  COMMAND
+root         1   0.0   0.1  22560  4096  Ss    /sbin/init
+alice     1234   1.2   0.8 512000 32000  Sl    /usr/bin/python3 app.py
+```
+
+```bash pgrep usage
+pgrep -l nginx          # list PIDs and names
+pgrep -u alice          # processes owned by alice
+pgrep -a python3        # full command lines
+```
+</CodeGroup>
+
+## Interactive Monitoring
+
+For a live, updating view of system activity, use `top` or the more feature-rich `htop`.
+
+```bash
+top                           # real-time process monitor
+htop                          # enhanced interactive monitor (if installed)
+```
+
+<Note>
+  While inside `top`, use these keyboard shortcuts to interact with it:
+  - **`q`** — quit
+  - **`k`** — kill a process (prompts for PID and signal)
+  - **`r`** — renice a process (change its priority)
+  - **`1`** — toggle a per-CPU breakdown at the top
+  - **`M`** — sort by memory usage
+  - **`P`** — sort by CPU usage
+</Note>
+
+## Sending Signals
+
+Linux communicates with processes through signals. Use `kill`, `pkill`, or `killall` to send them.
+
+```bash
+kill 1234                     # SIGTERM (graceful stop)
+kill -9 1234                  # SIGKILL (force stop)
+kill -HUP 1234                # SIGHUP (reload config)
+pkill nginx                   # kill by name
+killall nginx                 # kill all matching
+```
+
+<Tabs>
+  <Tab title="Common Signals">
+    | Signal | Number | Meaning |
+    |--------|--------|---------|
+    | `SIGTERM` | 15 | Graceful termination (default for `kill`) |
+    | `SIGKILL` | 9 | Immediate, unblockable termination |
+    | `SIGHUP` | 1 | Reload configuration (many daemons support this) |
+    | `SIGINT` | 2 | Interrupt (same as pressing Ctrl+C) |
+    | `SIGSTOP` | 19 | Pause/suspend a process |
+    | `SIGCONT` | 18 | Resume a paused process |
+  </Tab>
+  <Tab title="pkill vs killall">
+    Both commands target processes by name rather than PID, but they behave slightly differently:
+
+    - **`pkill`** matches against the process name using pattern matching and supports flags like `-u` (user) and `-g` (group).
+    - **`killall`** requires an exact process name match and kills every process with that name.
+
+    ```bash
+    pkill -u alice python3      # kill alice's python3 processes
+    killall -HUP nginx          # reload all nginx workers
+    ```
+  </Tab>
+</Tabs>
+
+<Warning>
+  `kill -9` (SIGKILL) does not allow the process to clean up, flush buffers, or release locks. Only use it as a last resort after SIGTERM has failed.
+</Warning>
+
+## Background and Foreground Jobs
+
+Run tasks in the background or move them between the foreground and background without opening a new terminal session.
+
+```bash
+command &                     # run in background
+jobs                          # list background jobs
+fg %1                         # bring job 1 to foreground
+bg %1                         # resume job 1 in background
+nohup command &               # persist after logout
+```
+
+<Steps>
+  <Step title="Start a job in the background">
+    Append `&` to any command to run it without blocking your shell prompt.
+  </Step>
+  <Step title="Check running jobs">
+    Run `jobs` to list all background and suspended jobs in the current shell session, along with their job numbers.
+  </Step>
+  <Step title="Move jobs between foreground and background">
+    Press **Ctrl+Z** to suspend the current foreground process, then use `bg %N` to resume it in the background or `fg %N` to bring it back to the foreground.
+  </Step>
+  <Step title="Persist jobs after logout">
+    Prefix your command with `nohup` (and append `&`) so it keeps running even after you close the terminal or disconnect an SSH session.
+  </Step>
+</Steps>
+
+## Process Priority
+
+Linux schedules processes using a priority value called "niceness," ranging from -20 (highest priority) to 19 (lowest priority). The default niceness is 0.
+
+```bash
+nice -n 10 command            # start with lower priority
+renice 5 -p 1234              # change running process priority
+```
+
+<Tip>
+  For processes managed by systemd (web servers, databases, cron jobs, etc.), use `systemctl` commands instead of `kill` and `nice`. Commands like `sudo systemctl restart nginx` and `sudo systemctl status postgresql` give you structured control and logging through the journal.
+</Tip>

@@ -1,0 +1,149 @@
+---
+title: "Linux Storage and Disk Management: A Complete Guide"
+sidebarTitle: "Storage"
+description: "Manage disks and storage on Linux: view disk usage with df and du, partition with fdisk, format filesystems, mount drives, and manage LVM volumes."
+---
+
+Linux gives you granular control over storage at every level — from individual partitions to logical volume groups that span multiple physical disks. Whether you are diagnosing a full filesystem, adding a new data drive, or setting up a flexible LVM layout for a server, the tools you need are all available from the command line. This guide walks through disk inspection, partitioning, formatting, mounting, and LVM management.
+
+## Checking Disk Usage
+
+Before making any changes to storage, understand how your current space is being used.
+
+<Tabs>
+  <Tab title="Filesystem usage (df)">
+    ```bash
+    df -h                                # disk space (human-readable)
+    df -h /                              # root filesystem only
+    ```
+
+    `df` reports usage at the filesystem level — it tells you how much space is available on each mounted volume.
+  </Tab>
+  <Tab title="Directory size (du)">
+    ```bash
+    du -sh /var                          # size of directory
+    du -sh /*                            # top-level directories
+    du -h --max-depth=1 /var             # one level deep
+    du -sh * | sort -rh | head -10       # top 10 largest
+    ```
+
+    `du` walks the directory tree and sums file sizes. The `sort -rh` pipeline is especially useful for hunting down disk hogs.
+  </Tab>
+</Tabs>
+
+## Listing Block Devices
+
+Get a clear picture of the physical disks and partitions attached to your system before making any changes.
+
+```bash
+lsblk                                # tree view of disks
+lsblk -f                             # with filesystem info
+blkid                                # UUIDs and filesystem types
+fdisk -l                             # detailed partition table
+```
+
+`lsblk` gives a clean tree view that shows how partitions, LVM volumes, and RAID arrays relate to one another. `blkid` is the quickest way to find a partition's UUID, which you'll need for `/etc/fstab` entries.
+
+## Partitioning with fdisk
+
+`fdisk` is an interactive tool for creating and managing partitions on MBR-style disks. Identify your target disk with `lsblk` first.
+
+<Warning>
+  Partitioning and formatting are destructive operations. Any existing data on the target partition or disk will be permanently lost. Double-check your device path before proceeding — `/dev/sdb` and `/dev/sda` are easy to confuse.
+</Warning>
+
+```bash
+sudo fdisk /dev/sdb
+# Inside fdisk:
+# p - print partition table
+# n - new partition
+# d - delete partition
+# t - change partition type
+# w - write and exit
+# q - quit without saving
+```
+
+<Note>
+  No changes are written to disk until you press `w`. If you make a mistake, press `q` to quit without saving and start over.
+</Note>
+
+## Formatting Filesystems
+
+After partitioning, format each partition with a filesystem before you can store data on it.
+
+```bash
+sudo mkfs.ext4 /dev/sdb1             # ext4
+sudo mkfs.xfs /dev/sdb1              # XFS
+sudo mkswap /dev/sdb2                # swap
+sudo swapon /dev/sdb2
+```
+
+<CardGroup cols={2}>
+  <Card title="ext4" icon="hard-drive" href="sysadmin/storage">
+    The default filesystem for most Linux distributions. Reliable, well-supported, and a safe choice for general-purpose data storage.
+  </Card>
+  <Card title="XFS" icon="hard-drive" href="sysadmin/storage">
+    Performs well at large scale and with large files. Common on RHEL/CentOS and used heavily in enterprise environments.
+  </Card>
+</CardGroup>
+
+## Mounting Drives
+
+Mount a formatted partition to a directory to make it accessible.
+
+```bash
+sudo mount /dev/sdb1 /mnt/data
+sudo umount /mnt/data
+sudo mount -a                        # mount all in /etc/fstab
+```
+
+Mounts made with `mount` do not persist across reboots. To make a mount permanent, add it to `/etc/fstab`. Use the partition's UUID rather than its device path, as device paths like `/dev/sdb1` can change between reboots.
+
+```
+UUID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx  /mnt/data  ext4  defaults  0  2
+```
+
+Get the UUID for your partition by running `blkid /dev/sdb1`. After editing `/etc/fstab`, run `sudo mount -a` to verify the entry is valid before rebooting.
+
+## LVM: Logical Volume Management
+
+LVM adds a flexible abstraction layer between physical disks and filesystems, letting you resize volumes, add disks to a pool, and take snapshots without downtime.
+
+<Steps>
+  <Step title="Create physical volumes">
+    Initialize one or more disks or partitions as LVM physical volumes:
+
+    ```bash
+    sudo pvcreate /dev/sdb
+    pvdisplay
+    ```
+  </Step>
+  <Step title="Create a volume group">
+    Group one or more physical volumes into a single storage pool called a volume group:
+
+    ```bash
+    sudo vgcreate datavg /dev/sdb
+    vgdisplay
+    ```
+  </Step>
+  <Step title="Create logical volumes">
+    Carve logical volumes out of the volume group. Each logical volume behaves like a partition that you can format and mount:
+
+    ```bash
+    sudo lvcreate -L 50G -n datalv datavg
+    lvdisplay
+    ```
+  </Step>
+  <Step title="Extend a logical volume">
+    When you need more space, extend the logical volume and resize the filesystem — no unmounting required for ext4:
+
+    ```bash
+    sudo lvextend -L +10G /dev/datavg/datalv
+    sudo resize2fs /dev/datavg/datalv    # resize ext4 filesystem
+    ```
+  </Step>
+</Steps>
+
+<Note>
+  For GPT partition tables — required for disks larger than 2 TB — use `parted` instead of `fdisk`. The `parted` command supports GPT natively and can also resize partitions non-destructively in some cases.
+</Note>

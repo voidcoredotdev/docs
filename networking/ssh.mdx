@@ -1,0 +1,173 @@
+---
+title: "SSH: Secure Remote Access, Keys, and Tunneling on Linux"
+sidebarTitle: "SSH"
+description: "Connect to remote servers with SSH, set up key-based authentication, configure sshd, use SSH tunneling and agent forwarding, and harden SSH security."
+---
+
+SSH (Secure Shell) is the standard protocol for encrypted remote access on Linux. It lets you open interactive shell sessions on remote machines, transfer files, forward ports, and tunnel arbitrary TCP connections — all over a single authenticated, encrypted channel. Most Linux administration happens through SSH, so investing time in understanding key-based authentication, the SSH config file, and port forwarding will pay dividends every day. This page covers everything from your first `ssh` command through hardening your server against unauthorized access.
+
+## Connecting to a Remote Server
+
+The basic `ssh` command takes a username and hostname (or IP address). By default it connects on port 22.
+
+```bash
+ssh user@hostname
+ssh user@192.168.1.10
+ssh -p 2222 user@hostname          # non-default port
+ssh -i ~/.ssh/mykey user@hostname  # specify a private key
+```
+
+## Generating SSH Keys
+
+Key-based authentication is more secure than passwords and can be made passwordless for automation. Generate a key pair on your local machine:
+
+```bash
+ssh-keygen -t ed25519 -C "your.email@example.com"
+ssh-keygen -t rsa -b 4096 -C "your.email@example.com"  # for older systems
+```
+
+`ssh-keygen` creates two files: a private key (keep this secret, never share it) and a public key ending in `.pub` (safe to distribute to any server you want to access).
+
+<Note>
+  **Ed25519** is the recommended key type — it is faster, smaller, and considered more secure than RSA. Use RSA 4096 only when connecting to legacy systems that do not support Ed25519.
+</Note>
+
+## Copying Your Public Key to a Server
+
+<Tabs>
+  <Tab title="ssh-copy-id (recommended)">
+    `ssh-copy-id` handles the remote directory creation and permission setting automatically.
+
+    ```bash
+    ssh-copy-id user@hostname
+    ssh-copy-id -i ~/.ssh/mykey.pub user@hostname
+    ```
+  </Tab>
+  <Tab title="Manual method">
+    If `ssh-copy-id` is unavailable, pipe your public key over an SSH session to append it directly to the authorized keys file on the remote machine.
+
+    ```bash
+    cat ~/.ssh/id_ed25519.pub | ssh user@hostname \
+      "mkdir -p ~/.ssh && chmod 700 ~/.ssh && \
+       cat >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys"
+    ```
+
+    Make sure `~/.ssh` has permissions `700` and `~/.ssh/authorized_keys` has permissions `600` on the remote server, or SSH will refuse to use the file.
+  </Tab>
+</Tabs>
+
+## The SSH Client Config File
+
+Defining host aliases in `~/.ssh/config` saves you from typing long commands repeatedly and keeps connection options organized.
+
+```
+Host myserver
+    HostName 192.168.1.10
+    User alice
+    Port 22
+    IdentityFile ~/.ssh/mykey
+
+Host bastion
+    HostName bastion.example.com
+    User ec2-user
+    ForwardAgent yes
+```
+
+With this in place, you connect with simply:
+
+```bash
+ssh myserver
+```
+
+<Tip>
+  Use `ssh-agent` to hold your decrypted private key in memory for the duration of a session. Start it with `eval "$(ssh-agent -s)"`, then add your key with `ssh-add ~/.ssh/mykey`. You will only need to enter your passphrase once per session, after which all SSH connections use the cached key automatically.
+</Tip>
+
+## Configuring the SSH Server (sshd)
+
+The SSH daemon is configured in `/etc/ssh/sshd_config`. The following settings represent a secure baseline for most servers.
+
+```
+Port 22
+PermitRootLogin no
+PasswordAuthentication no
+PubkeyAuthentication yes
+AuthorizedKeysFile .ssh/authorized_keys
+AllowUsers alice bob
+```
+
+After making changes, restart the SSH service:
+
+```bash
+sudo systemctl restart sshd
+```
+
+<Warning>
+  Always test your new `sshd_config` in a separate terminal session before closing your current connection. Open a second SSH session and confirm you can log in successfully. If something is wrong, your existing session stays open and you can fix the configuration before being locked out.
+</Warning>
+
+## Port Forwarding and Tunnels
+
+SSH can forward TCP connections between your local machine and a remote server, enabling access to services that are not directly reachable.
+
+```bash
+# Local forward: access remote service locally
+ssh -L 8080:localhost:80 user@hostname
+
+# Remote forward: expose local service on remote
+ssh -R 9090:localhost:3000 user@hostname
+
+# Dynamic SOCKS proxy (route browser traffic through the server)
+ssh -D 1080 user@hostname
+
+# Jump through a bastion host to reach an internal server
+ssh -J user@bastion user@internal-host
+```
+
+## Transferring Files
+
+<CodeGroup>
+```bash scp
+# Copy a local file to a remote server
+scp file.txt user@hostname:/remote/path/
+
+# Copy a remote file to your local machine
+scp user@hostname:/remote/file.txt ./local/
+```
+
+```bash rsync
+# Sync a local directory to a remote server (preferred for directories)
+rsync -avz ./local/ user@hostname:/remote/
+```
+</CodeGroup>
+
+<Tip>
+  Use `rsync` instead of `scp` when transferring directories or large numbers of files. `rsync` only transfers files that have changed, compresses data in transit with `-z`, and preserves file attributes with `-a`. It is significantly faster for repeated transfers.
+</Tip>
+
+## Security Hardening
+
+Apply these practices to reduce the attack surface of any SSH-accessible server.
+
+<Steps>
+  <Step title="Disable root login">
+    Set `PermitRootLogin no` in `/etc/ssh/sshd_config`. Log in as a regular user and use `sudo` to escalate privileges when needed.
+  </Step>
+  <Step title="Disable password authentication">
+    Set `PasswordAuthentication no` once you have confirmed key-based login works. This eliminates the risk of brute-force password attacks entirely.
+  </Step>
+  <Step title="Restrict who can log in">
+    Use `AllowUsers alice bob` or `AllowGroups sshusers` in `sshd_config` to create an explicit allowlist. Any user not on the list is denied access regardless of their credentials.
+  </Step>
+  <Step title="Install Fail2ban">
+    Fail2ban monitors authentication logs and automatically bans IP addresses that exceed a configurable number of failed login attempts.
+
+    ```bash
+    sudo apt install fail2ban
+    sudo systemctl enable --now fail2ban
+    ```
+  </Step>
+  <Step title="Consider changing the default port">
+    Changing `Port 22` to a non-standard port (e.g., `2222`) reduces automated scan noise in your logs. It is not a security control on its own, but it does lower the volume of brute-force attempts you need to manage.
+  </Step>
+</Steps>

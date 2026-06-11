@@ -1,0 +1,146 @@
+---
+title: "Ubuntu ACLs: setfacl and getfacl File Permission Guide"
+sidebarTitle: "ACLs"
+description: "Use ACLs in Ubuntu to set fine-grained file permissions beyond standard Unix ownership. Learn setfacl, getfacl, default ACLs, and how to install acl tools."
+---
+
+Standard Unix permissions give you three permission sets — owner, group, and everyone else — which works well for simple access patterns but falls short when multiple users or groups need different levels of access to the same file or directory. Access Control Lists (ACLs) extend the traditional permission model by letting you attach per-user and per-group permission entries to any file or directory, without changing ownership or forcing everyone into a shared group. Ubuntu supports POSIX ACLs on all common filesystems, and the `setfacl` and `getfacl` utilities give you full control over them.
+
+<Warning>
+  ACLs are supported on most modern filesystems (ext4, xfs, btrfs), but are **not available on all filesystems** — notably FAT32 and some network mounts. Check that your target filesystem supports ACLs before relying on them in production.
+</Warning>
+
+## Installing ACL Tools
+
+Most Ubuntu installations include the `acl` package, but install it explicitly if the commands are missing.
+
+```bash
+sudo apt install acl
+```
+
+On Ubuntu 16.04 LTS and later, ext4 filesystems have ACL support enabled by default — no additional mount options are required.
+
+## Viewing ACLs
+
+Use `getfacl` to display the access control list for any file or directory.
+
+```bash
+getfacl file.txt
+getfacl directory/
+```
+
+The output looks like this:
+
+```
+# file: file.txt
+# owner: bob
+# group: staff
+user::rw-
+user:alice:rw-
+group::r--
+mask::rw-
+other::r--
+```
+
+Each line in the output represents one ACL entry:
+
+| Entry | Meaning |
+|---|---|
+| `user::rw-` | Permissions for the file owner |
+| `user:alice:rw-` | Named user entry — permissions specifically for `alice` |
+| `group::r--` | Permissions for the owning group |
+| `mask::rw-` | The effective permission ceiling for named users and groups |
+| `other::r--` | Permissions for everyone else |
+
+## Setting ACLs
+
+Use `setfacl -m` (modify) to add or update ACL entries. The format is `u:username:permissions` for users and `g:groupname:permissions` for groups.
+
+```bash
+# Grant user alice read and write access
+setfacl -m u:alice:rw file.txt
+
+# Grant group developers read and execute access on a directory
+setfacl -m g:developers:rx /opt/app
+
+# Set multiple entries in a single command
+setfacl -m u:alice:rw,g:developers:r file.txt
+```
+
+### Common Use Case: Web Server Access
+
+A typical scenario is when both a web server process and a developer need access to the same directory — but changing group ownership would affect too many other resources.
+
+```bash
+# Give www-data (web server) read and execute access
+setfacl -m u:www-data:rx /var/www/myapp
+
+# Give developer alice full access
+setfacl -m u:alice:rwx /var/www/myapp
+```
+
+This lets both identities access the directory independently, without altering group ownership or granting unnecessary broad access.
+
+## Default ACLs
+
+Default ACLs apply to directories and are automatically inherited by new files and subdirectories created inside them — essential for shared project directories where you want consistent permissions without manually setting them each time.
+
+```bash
+# Set a default ACL so new files inherit alice's rwx access
+setfacl -d -m u:alice:rwx /shared/project
+
+# Set a default ACL for the developers group
+setfacl -d -m g:developers:rx /shared/project
+
+# View both access and default ACLs on the directory
+getfacl /shared/project
+```
+
+<Note>
+  Default ACLs only apply to **directories**, not individual files. Files created inside a directory with default ACLs inherit those entries; files created elsewhere do not.
+</Note>
+
+## Removing ACLs
+
+Remove individual entries, all ACLs, or only default ACLs depending on how much you want to strip back.
+
+```bash
+setfacl -x u:alice file.txt          # remove alice's named user entry only
+setfacl -b file.txt                  # remove all ACL entries (revert to standard permissions)
+setfacl -k directory/                # remove default ACLs only, keep access ACLs
+```
+
+## Recursive ACLs
+
+Apply an ACL to a directory and all of its contents at once with the `-R` flag.
+
+```bash
+setfacl -R -m u:alice:rwx /shared/project
+```
+
+<Tip>
+  Combine `-R` with `-d` to set both access and default ACLs recursively on a directory tree, ensuring existing files and any future files are covered.
+</Tip>
+
+## Understanding the Mask
+
+The mask defines the maximum effective permissions that any named user or named group entry can have. It acts as a cap — even if an entry grants `rwx`, the effective permissions are limited to what the mask allows.
+
+```bash
+setfacl -m m::r /shared/project      # restrict mask to read-only for all named entries
+```
+
+Check the effective permissions in `getfacl` output — entries with permissions beyond the mask show `#effective:` to indicate the actual enforced permissions.
+
+## Backing Up and Restoring ACLs
+
+Before making large changes or migrating a filesystem, export all ACLs to a text file and restore them later if needed.
+
+```bash
+getfacl -R /path > acls_backup.txt        # recursively export all ACLs to a file
+setfacl --restore=acls_backup.txt         # restore ACLs from the backup file
+```
+
+<Note>
+  The backup file produced by `getfacl -R` preserves relative paths, so restore it from the **same parent directory** you exported from to ensure paths resolve correctly.
+</Note>

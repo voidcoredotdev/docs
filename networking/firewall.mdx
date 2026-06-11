@@ -1,0 +1,119 @@
+---
+title: "Configure Linux Firewalls with ufw and iptables Rules"
+sidebarTitle: "Firewall"
+description: "Set up and manage Linux firewall rules using ufw for simple allow/deny policies and iptables for advanced packet filtering and chain management."
+---
+
+Linux firewall functionality is built into the kernel through **Netfilter**, and `iptables` is the traditional user-space tool for defining how Netfilter processes packets. Because raw `iptables` rules can be verbose and error-prone, Ubuntu ships with **ufw** (Uncomplicated Firewall) — a higher-level frontend that translates simple English-style rules into the correct `iptables` commands. For most servers and desktops, `ufw` is the right place to start. For advanced scenarios like NAT, custom chains, or stateful packet inspection, you will want to work directly with `iptables`.
+
+<Warning>
+  Before enabling any firewall, make sure you add a rule that allows SSH (port 22) access. Enabling a firewall with a default-deny policy without an SSH allow rule will immediately lock you out of a remote machine with no easy way back in.
+</Warning>
+
+## Managing Firewalls with ufw
+
+### Install and Check Status
+
+```bash
+sudo apt install ufw
+sudo ufw status verbose
+```
+
+### Enable and Disable
+
+```bash
+sudo ufw enable
+sudo ufw disable
+```
+
+### Common Rules
+
+```bash
+sudo ufw allow ssh                         # allow SSH (port 22)
+sudo ufw allow 80/tcp                      # HTTP
+sudo ufw allow 443/tcp                     # HTTPS
+sudo ufw allow from 192.168.1.0/24        # from subnet
+sudo ufw deny 23/tcp                       # deny telnet
+sudo ufw delete allow 80/tcp              # remove rule
+sudo ufw allow from 10.0.0.5 to any port 22  # specific source
+```
+
+### Application Profiles
+
+`ufw` ships with named application profiles that define standard port sets for common services. Use them to avoid hard-coding port numbers.
+
+```bash
+sudo ufw app list                          # list available profiles
+sudo ufw allow 'Nginx Full'
+sudo ufw allow 'OpenSSH'
+```
+
+### Default Policies
+
+Set default policies to define what happens to traffic that does not match any explicit rule. The safest baseline for a server is to deny all incoming and allow all outgoing traffic.
+
+```bash
+sudo ufw default deny incoming
+sudo ufw default allow outgoing
+```
+
+<Tip>
+  Always run `sudo ufw allow ssh` (or `sudo ufw allow 22/tcp`) **before** setting the default incoming policy to `deny` and **before** running `sudo ufw enable`. This order guarantees you never lose SSH access to a remote machine.
+</Tip>
+
+## Advanced Filtering with iptables
+
+`iptables` operates on chains — **INPUT** (packets destined for the local system), **OUTPUT** (packets leaving the system), and **FORWARD** (packets routed through the system). Rules are evaluated top to bottom; the first match wins.
+
+### Inspecting the Current Ruleset
+
+```bash
+sudo iptables -L -v -n                    # list all rules with counts
+sudo iptables -L INPUT -v -n             # INPUT chain only
+```
+
+### Building a Basic Ruleset
+
+<Steps>
+  <Step title="Allow established connections">
+    Permit traffic for sessions that are already established or related to an existing connection. This prevents the firewall from dropping return traffic.
+
+    ```bash
+    sudo iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+    ```
+  </Step>
+  <Step title="Allow SSH">
+    Open port 22 before you set any restrictive default policy.
+
+    ```bash
+    sudo iptables -A INPUT -p tcp --dport 22 -j ACCEPT
+    ```
+  </Step>
+  <Step title="Allow HTTP and HTTPS">
+    Open ports 80 and 443 if you are running a web server.
+
+    ```bash
+    sudo iptables -A INPUT -p tcp --dport 80 -j ACCEPT
+    sudo iptables -A INPUT -p tcp --dport 443 -j ACCEPT
+    ```
+  </Step>
+  <Step title="Set default DROP policy">
+    Drop all INPUT traffic that did not match a previous ACCEPT rule.
+
+    ```bash
+    sudo iptables -P INPUT DROP
+    ```
+  </Step>
+  <Step title="Persist rules across reboots">
+    `iptables` rules are in-memory by default and are lost on reboot. Install `iptables-persistent` to save and restore them automatically.
+
+    ```bash
+    sudo apt install iptables-persistent
+    sudo netfilter-persistent save
+    ```
+  </Step>
+</Steps>
+
+<Note>
+  **nftables** is the modern successor to `iptables` and is the default packet filtering framework in newer kernels (Linux 3.13+). Many distributions are migrating to `nftables` as the primary tool. `iptables` commands on those systems are translated through a compatibility layer (`iptables-nft`). For new production setups on recent Ubuntu releases, consider learning `nft` syntax as a forward-looking investment.
+</Note>

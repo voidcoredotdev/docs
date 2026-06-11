@@ -1,0 +1,26 @@
+---
+title: "Linux Networking: IP Addressing, DNS, Firewall, and SSH"
+sidebarTitle: "Overview"
+description: "Explore Linux networking essentials: configure IP addresses, manage DNS, set up firewalls with ufw and iptables, and connect securely using SSH."
+---
+
+Linux networking spans everything from assigning IP addresses to your interfaces, resolving hostnames through DNS, securing traffic with firewall rules, and connecting to remote machines over SSH. Whether you are administering a single home server or managing a fleet of cloud instances, understanding these core networking primitives gives you the control and visibility you need to diagnose problems and keep systems running reliably. This section is aimed at Linux and Ubuntu users who want practical, command-driven knowledge — from beginners setting up their first static IP to sysadmins tuning firewall policies.
+
+<CardGroup cols={2}>
+  <Card title="IP Addressing" icon="network-wired" href="networking/ip-addressing">
+    View and configure network interfaces, assign static or dynamic IP addresses, manage routes, and inspect connection state using `ip`, Netplan, and NetworkManager.
+  </Card>
+  <Card title="DNS" icon="globe" href="networking/dns">
+    Configure DNS resolvers, edit `/etc/resolv.conf` and `/etc/hosts`, and use `dig`, `nslookup`, and `host` to query records and troubleshoot resolution failures.
+  </Card>
+  <Card title="Firewall" icon="shield-halved" href="networking/firewall">
+    Manage firewall rules with `ufw` for straightforward allow/deny policies and `iptables` for advanced packet filtering and chain management.
+  </Card>
+  <Card title="SSH" icon="terminal" href="networking/ssh">
+    Connect securely to remote servers, set up key-based authentication, configure `sshd`, forward ports, transfer files, and harden your SSH setup.
+  </Card>
+</CardGroup>
+
+<Note>
+  Ubuntu 17.10 and later use **Netplan** as the default network configuration layer. Netplan generates backend configuration for either `systemd-networkd` or NetworkManager depending on the renderer you choose. If you are following older tutorials that reference `/etc/network/interfaces`, note that file is largely superseded on modern Ubuntu systems.
+</Note>
