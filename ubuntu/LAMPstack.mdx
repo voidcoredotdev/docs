@@ -1,0 +1,209 @@
+# LAMP Stack on Debian 12 (Bookworm) – Proxmox VM Setup
+
+---
+
+## ✅ What is LAMP?
+
+**LAMP** stands for:
+
+- **Linux** (Debian in this case)
+- **Apache** (web server)
+- **MySQL/MariaDB** (database)
+- **PHP** (server-side language)
+
+---
+
+## 1. 🖥️ Proxmox VM Setup
+
+**Create a VM in Proxmox:**
+
+- OS: Debian 12 ISO
+- CPU: 2 cores
+- RAM: 2–4 GB
+- Disk: 10–20 GB
+- Network: Use **virtio** bridged NIC
+
+---
+
+## 2. 🐧 Debian 12 Base Setup
+
+```bash
+# Update system
+sudo apt update && sudo apt upgrade -y
+
+# Optional: set hostname
+sudo hostnamectl set-hostname my-lamp-vm
+
+# Install helpful tools
+sudo apt install curl wget vim htop unzip git -y
+
+```
+
+---
+
+## 3. 🌐 Install Apache
+
+```bash
+sudo apt install apache2 -y
+
+# Enable and start
+sudo systemctl enable apache2
+sudo systemctl start apache2
+
+# Check
+curl http://localhost
+
+```
+
+---
+
+## 4. 🛢️ Install MariaDB (drop-in MySQL replacement)
+
+```bash
+sudo apt install mariadb-server -y
+
+# Run secure installation
+sudo mysql_secure_installation
+
+```
+
+Sample answers:
+
+- Enter current password: (just press enter)
+- Set root password? Y
+- Remove anonymous users? Y
+- Disallow root login remotely? Y
+- Remove test database? Y
+- Reload privileges? Y
+
+---
+
+## 5. 🐘 Install PHP
+
+```bash
+sudo apt install php libapache2-mod-php php-mysql -y
+
+# Test PHP
+echo "<?php phpinfo(); ?>" | sudo tee /var/www/html/info.php
+
+```
+
+Then visit: `http://<server-ip>/info.php` — if it loads, PHP is working!
+
+---
+
+## 6. 🔐 Permissions & Hardening
+
+```bash
+# Set proper permissions
+sudo chown -R www-data:www-data /var/www/html
+sudo chmod -R 755 /var/www/html
+
+# Remove PHP info file after test
+sudo rm /var/www/html/info.php
+
+```
+
+---
+
+## 7. 🚀 Restart Everything
+
+```bash
+sudo systemctl restart apache2
+sudo systemctl restart mariadb
+
+```
+
+---
+
+## 8. 🔌 Optional: Enable Apache Rewrite (for .htaccess etc.)
+
+```bash
+sudo a2enmod rewrite
+sudo systemctl restart apache2
+
+# Edit Apache default conf
+sudo nano /etc/apache2/sites-available/000-default.conf
+
+```
+
+Add inside `<VirtualHost *:80>`:
+
+```
+<Directory /var/www/html>
+    AllowOverride All
+</Directory>
+
+```
+
+---
+
+## 9. 📂 (Optional) Create Virtual Host
+
+```bash
+sudo mkdir -p /var/www/myproject
+sudo cp -r /var/www/html/* /var/www/myproject/
+
+sudo nano /etc/apache2/sites-available/myproject.conf
+
+```
+
+Example config:
+
+```
+<VirtualHost *:80>
+    ServerAdmin webmaster@localhost
+    DocumentRoot /var/www/myproject
+    ServerName myproject.local
+
+    <Directory /var/www/myproject>
+        Options Indexes FollowSymLinks
+        AllowOverride All
+        Require all granted
+    </Directory>
+</VirtualHost>
+
+```
+
+Then:
+
+```bash
+sudo a2ensite myproject.conf
+sudo systemctl reload apache2
+
+```
+
+---
+
+## 🧪 Test Everything
+
+```bash
+apache2 -v         # Apache version
+php -v             # PHP version
+mysql -V           # MariaDB version
+
+```
+
+Try a simple `index.php`:
+
+```php
+<?php
+echo "LAMP stack is alive!";
+
+```
+
+---
+
+## 🔁 Bonus: Reboot & Check
+
+```bash
+sudo reboot
+
+```
+
+Then:
+
+- Visit server IP → Apache default page
+- Try PHP and database
+
+---
