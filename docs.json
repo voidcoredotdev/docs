@@ -1,13 +1,42 @@
 {
-  "$schema": "https://mintlify.com/docs.json",
   "theme": "luma",
-  "name": "Voidcore Wiki",
+  "name": "thevoid.wiki",
   "colors": {
-    "primary": "#040404",
+    "primary": "#0f1216",
     "light": "#0c7ebc",
     "dark": "#d2e1ea"
   },
-  "favicon": "https://media.brand.dev/593270eb-a368-4fa3-aa63-43f17d466f26.svg",
+  "favicon": {
+    "light": "view-source:https://thevoid.fyi/assets/img/favicon-96x96.png",
+    "dark": "view-source:https://thevoid.fyi/assets/img/favicon-96x96.png"
+  },
+  "navbar": {
+    "links": [
+      {
+        "href": "https://thevoid.fyi",
+        "label": "thevoid.fyi"
+      }
+    ],
+    "primary": {
+      "type": "button",
+      "label": "Visit Wiki",
+      "href": "https://wiki.voidcore.dev"
+    }
+  },
+  "footer": {
+    "socials": {
+      "website": "https://thevoid.fyi"
+    }
+  },
+  "fonts": {
+    "family": "Roboto"
+  },
+  "errors": {
+    "404": {
+      "redirect": true
+    }
+  },
+  "$schema": "https://mintlify.com/docs.json",
   "navigation": {
     "tabs": [
       {
@@ -64,15 +93,5 @@
         ]
       }
     ]
-  },
-  "navbar": {
-    "primary": {
-      "type": "button",
-      "label": "Visit Wiki",
-      "href": "https://wiki.voidcore.dev"
-    }
-  },
-  "footer": {
-    "socials": {}
   }
 }
